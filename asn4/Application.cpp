@@ -172,17 +172,23 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 			OpenFileDialog();
 			break;
 		case ASN_PCK:
-			CancelIoEx(hComm, NULL);
+			startWriting();
 			OutputDebugString("ENQ\n");
 			OutputDebugString("sendtest");
 			////string s1 = packetBuffer[0][0];
 			//for (int i = 0; i < packetsCreated; i++) 
-					if (!WriteFile(hComm, packetBuffer[0], PACKETLENGTH, NULL, NULL)) {
-						OutputDebugString("Couldn't write, sorry\n");
-					}
+			for (int i = 0; i < packetsCreated; i++) {
+				if (!WriteFile(hComm, packetBuffer[i], PACKETLENGTH, NULL, NULL)) {
+					OutputDebugString("Couldn't write, sorry\n");
+				}
+				if (i < packetsCreated) {
+					WriteFile(hComm, enq, 1, NULL, NULL);
+				}
+			}
 			//}
 			//CancelIoEx(hComm, NULL);
 			//send eot?
+			finishWriting();
 			break;
 		case ACK_REC:
 			OutputDebugString("ACK received\n");
@@ -354,14 +360,14 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 					else {
 						DWORD currentLen = 0;
 						LPDWORD bytesRead = (LPDWORD)calloc(1, PACKETLENGTH);
-						OutputDebugString("ACK sent\n");
 						while (currentLen < PACKETLENGTH) {
 							if (ReadFile(lpParam, receiveBuffer + currentLen, PACKETLENGTH, bytesRead, NULL)) {
 								currentLen += *bytesRead;
 							}
 						}
 						OutputDebugString("Read a packet\n");
-						OutputDebugString(Depacketize(receiveBuffer) ? "CHECKSUM TRUE\n" : "CHECKSUM FALSE\n");
+						OutputDebugString(ErrorCheck(receiveBuffer) ? "CHECKSUM TRUE\n" : "CHECKSUM FALSE\n");
+						Depacketize(receiveBuffer);
 					}
 					
 

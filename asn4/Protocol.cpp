@@ -46,14 +46,15 @@ void ReceivePacket() {
 	// if not keep waiting (timeout procedures)
 }
 
-void ErrorCheck() {
-	// first byte is SOH
-	// 2nd byte is correct sync bit
-	// 3rd and 4th byte is checksum
-	// the calculate checksum
+void Depacketize(CHAR *packet) {
+	CHAR temp[PACKETLENGTH];
+	int i;
+	//OutputDebugString(packet);
+	strncpy_s(packet, PACKETLENGTH, packet + 4, DATALENGTH);
+	OutputDebugString(packet);
 }
 
-BOOL Depacketize(CHAR *packet) {
+BOOL ErrorCheck(CHAR *packet) {
 	checksum *cs = new checksum(); 
 	int i;
 	for (i = 0; i < PACKETLENGTH && packet[i] != EOT; i++) {

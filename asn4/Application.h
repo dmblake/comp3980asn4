@@ -5,7 +5,6 @@
 #include "stdio.h"
 #include "Menu.h"
 #include "Time.h"
-#include "Session.h"
 #include "Protocol.h"
 
 #define BTN_WIDTH 75

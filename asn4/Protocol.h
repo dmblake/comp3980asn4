@@ -26,7 +26,8 @@
 
 DWORD CreatePackets(CHAR *bufToPacketize, CHAR buffer[MAXPACKETS][PACKETLENGTH]);
 void Packetize(CHAR *buf, CHAR *packet);
-BOOL Depacketize(CHAR *packet);
+BOOL ErrorCheck(CHAR *packet);
+void Depacketize(CHAR *packet);
 
 void Idle();
 void WaitForAck();
