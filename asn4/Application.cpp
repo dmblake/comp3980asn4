@@ -4,7 +4,7 @@ TCHAR FileName[100];
 TCHAR Result[8000000] = "";
 CHAR pbuf[512];
 CHAR packetBuffer[MAXPACKETS][PACKETLENGTH];
-HWND hMain, hBtnConnect, hBtnQuit, hSend, hReceive, hStats;
+HWND hMain, hBtnConnect, hBtnQuit, hSend, hReceive, hStats, hSendEnq, hSendPacket;
 DWORD packetsCreated = 0, packetsReceived = 0, packetsSent = 0;
 
 BOOL CreateUI(HINSTANCE hInst) {
@@ -46,6 +46,15 @@ BOOL CreateUI(HINSTANCE hInst) {
 
 	if (!(hSend = CreateWindow("EDIT", "Sent File", WS_CHILD | WS_VISIBLE |  WS_BORDER | WS_VSCROLL | ES_MULTILINE,
 		0, 0, 400, 250, hMain, (HMENU)NULL, (HINSTANCE)GetWindowLong(hMain, GWL_HINSTANCE), NULL))) {
+		return FALSE;
+	}
+	if (!(hSendEnq = CreateWindow("BUTTON", "Send ENQ", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+		BTN_XSTART, BTN_YSTART + (BTN_HEIGHT + BTN_BUFFER) * 2, BTN_WIDTH, BTN_HEIGHT, hMain, (HMENU)ASN_ENQ, (HINSTANCE)GetWindowLong(hMain, GWL_HINSTANCE), NULL))) {
+		return FALSE;
+	}
+
+	if (!(hSendPacket = CreateWindow("BUTTON", "Packet", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+		BTN_XSTART, BTN_YSTART + (BTN_HEIGHT + BTN_BUFFER) * 3, BTN_WIDTH, BTN_HEIGHT, hMain, (HMENU)ASN_PCK, (HINSTANCE)GetWindowLong(hMain, GWL_HINSTANCE), NULL))) {
 		return FALSE;
 	}
 	if (!(hReceive = CreateWindow("EDIT", "Received File", WS_VISIBLE | WS_CHILD | WS_BORDER | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL,
@@ -159,6 +168,7 @@ DWORD ReadUntilDone(HANDLE fileToBeRead) {
 	packetsCreated = CreatePackets(Result, packetBuffer);
 	
 	// process created packets
+	/*
 	for (i = 0; i < packetsCreated; i++) { 
 		if (Depacketize(packetBuffer[i])) {
 			OutputDebugString("\nDepacked!\n");
@@ -167,6 +177,7 @@ DWORD ReadUntilDone(HANDLE fileToBeRead) {
 			OutputDebugString("\nDepack Error!\n");
 		}
 	}
+	*/
 	SetStatistics();
 	result = *bytesRead;
 	free(bytesRead);

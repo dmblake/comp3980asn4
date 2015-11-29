@@ -4,3 +4,5 @@
 #define ASN_CLR 104
 #define ASN_HLP 105
 #define ASN_OPN 106
+#define ASN_ENQ 107
+#define ASN_PCK 108
