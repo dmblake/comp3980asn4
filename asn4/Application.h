@@ -1,6 +1,7 @@
 #ifndef APPLICATION_H
 #define APPLICATION_H
 #include <Windows.h>
+#include <string>
 #include "stdio.h"
 #include "Menu.h"
 #include "Time.h"
@@ -14,10 +15,13 @@
 #define BTN_BUFFER 5
 #define MAX_READ 50000
 
+
 int CALLBACK WinMain(HINSTANCE hInst, HINSTANCE prevInstance, LPSTR lpCmdline, int nCmdShow);
 LRESULT CALLBACK WndProc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam);
 void OpenFileDialog();
 void ClearTextBoxes();
 void SetStatistics();
+void startWriting();
+void finishWriting();
 static DWORD WINAPI ReadFromPort(LPVOID lpParam);
 #endif

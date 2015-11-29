@@ -7,4 +7,5 @@
 #define ASN_ENQ 107
 #define ASN_PCK 108
 #define ASN_SET 109
+#define ACK_REC 110
 

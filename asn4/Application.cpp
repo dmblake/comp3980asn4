@@ -5,12 +5,15 @@ TCHAR Result[8000000] = "";
 TCHAR ComName[] = "COM1";
 CHAR pbuf[512];
 CHAR packetBuffer[MAXPACKETS][PACKETLENGTH];
+CHAR receiveBuffer[PACKETLENGTH];
 HANDLE hComm, hThrd;
 HWND hMain, hBtnConnect, hBtnQuit, hSend, hReceive, hStats, hSendEnq, hSendPacket;
-DWORD packetsCreated = 0, packetsReceived = 0, packetsSent = 0, threadId;
+DWORD packetsCreated = 0, packetsReceived = 0, packetsSent = 0, acksReceived = 0, threadId;
 TCHAR enq[1] = "";
 TCHAR ack[1] = "";
 COMMCONFIG cc = { 0 };
+BOOL writing = FALSE;
+//string s1 = "s";
 
 BOOL CreateUI(HINSTANCE hInst) {
 	WNDCLASSEX Wcl;
@@ -138,11 +141,12 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
 		case ASN_ENQ:
-			CancelIoEx(hComm, NULL);
+			startWriting();
 			if (!WriteFile(hComm, enq, 1, NULL, NULL)) {
 				OutputDebugString("Couldn't write, sorry\n");
 			}
-			OutputDebugString("ENQ\n");
+			OutputDebugString("ENQ sent\n");
+			finishWriting();
 			break;
 		case ASN_SET:
 			if (!CommConfigDialog(TEXT("com1"), hMain, &cc)) {
@@ -166,6 +170,22 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 			break;
 		case ASN_OPN:
 			OpenFileDialog();
+			break;
+		case ASN_PCK:
+			CancelIoEx(hComm, NULL);
+			OutputDebugString("ENQ\n");
+			OutputDebugString("sendtest");
+			////string s1 = packetBuffer[0][0];
+			//for (int i = 0; i < packetsCreated; i++) 
+					if (!WriteFile(hComm, packetBuffer[0], PACKETLENGTH, NULL, NULL)) {
+						OutputDebugString("Couldn't write, sorry\n");
+					}
+			//}
+			//CancelIoEx(hComm, NULL);
+			//send eot?
+			break;
+		case ACK_REC:
+			OutputDebugString("ACK received\n");
 			break;
 		}
 		break; // end WM_COMMAND
@@ -298,7 +318,7 @@ void SetStatistics() {
 	TCHAR str[128] = "";
 	sprintf_s(str, "PACKETS SENT: %d\n"
 		"PACKETS RECEIVED: %d\n"
-		"ACKS RECEIVED: %d\n", packetsCreated, 35, 10);
+		"ACKS RECEIVED: %d\n", packetsCreated, 35, acksReceived);
 	SetWindowText(hStats, str);
 }
 
@@ -320,7 +340,7 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 
 	while (true) {
 		//wait for comm event, can't timeout
-		if (WaitCommEvent(lpParam, &dwEvent, NULL)) {
+		if (!writing && WaitCommEvent(lpParam, &dwEvent, NULL)) {
 			//deal with packet including timeouts
 
 			if (ReadFile(lpParam, &buffer, sizeof(char), NULL, &overlapped)) {
@@ -332,13 +352,24 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 						OutputDebugString("Couldn't write, sorry\n");
 					}
 					else {
+						DWORD currentLen = 0;
+						LPDWORD bytesRead = (LPDWORD)calloc(1, PACKETLENGTH);
 						OutputDebugString("ACK sent\n");
+						while (currentLen < PACKETLENGTH) {
+							if (ReadFile(lpParam, receiveBuffer + currentLen, PACKETLENGTH, bytesRead, NULL)) {
+								currentLen += *bytesRead;
+							}
+						}
+						OutputDebugString("Read a packet\n");
+						OutputDebugString(Depacketize(receiveBuffer) ? "CHECKSUM TRUE\n" : "CHECKSUM FALSE\n");
 					}
 					
 
 				}
 				else if (buffer[0] == ACK) {
 					OutputDebugString("ACK received\n");
+					acksReceived++;
+					SendMessage(hMain, WM_COMMAND, ACK_REC, NULL);
 				}
 				else {
 
@@ -357,7 +388,15 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 				}
 			}
 		}
-		Sleep(2);
 	}
 	return 0;
+}
+
+void startWriting() {
+	writing = true;
+	CancelIoEx(hComm, NULL);
+}
+
+void finishWriting() {
+	writing = false;
 }
