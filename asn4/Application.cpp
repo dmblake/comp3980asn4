@@ -177,11 +177,11 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 			OutputDebugString("sendtest");
 			////string s1 = packetBuffer[0][0];
 			//for (int i = 0; i < packetsCreated; i++) 
-			for (int i = 0; i < packetsCreated; i++) {
+			for (int i = 0; i < packetsCreated;) {
 				if (!WriteFile(hComm, packetBuffer[i], PACKETLENGTH, NULL, NULL)) {
 					OutputDebugString("Couldn't write, sorry\n");
 				}
-				if (i < packetsCreated) {
+				if (++i < packetsCreated) {
 					WriteFile(hComm, enq, 1, NULL, NULL);
 				}
 			}
@@ -289,17 +289,17 @@ void OpenFileDialog() {
 	if (GetOpenFileName(&ofn) == TRUE) {
 		// valid file selected
 		// going to want to call packetize here
-		LPDWORD bytesWrittenToNewFile = (LPDWORD) malloc(sizeof(DWORD));
-		hf = CreateFile(ofn.lpstrFile, GENERIC_READ, 
+		LPDWORD bytesWrittenToNewFile = (LPDWORD)malloc(sizeof(DWORD));
+		hf = CreateFile(ofn.lpstrFile, GENERIC_READ,
 			0, (LPSECURITY_ATTRIBUTES)NULL,
 			OPEN_EXISTING,
-			FILE_ATTRIBUTE_NORMAL, 
+			FILE_ATTRIBUTE_NORMAL,
 			(HANDLE)NULL);
-		DWORD bytesRead = 0; 
+		DWORD bytesRead = 0;
 		OutputDebugString(ofn.lpstrFile);
 		OutputDebugString("\n");
 		if ((bytesRead = ReadUntilDone(hf))) {
-		//if (ReadFile(hf, Result, 10, bytesRead, NULL)) {
+			//if (ReadFile(hf, Result, 10, bytesRead, NULL)) {
 			newFile = CreateFile(FileName, FILE_APPEND_DATA | GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 			SetFilePointer(newFile, NULL, NULL, FILE_END);
 			if (WriteFile(newFile, Result, bytesRead, bytesWrittenToNewFile, NULL)) {
@@ -353,6 +353,10 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 				//process char
 				if (buffer[0] == ENQ) {
 					//if ENQ received
+					// reset the receivebuffer so that there is no junk if the next packet is a short one
+					for (int i = 0; i < PACKETLENGTH; i++) {
+						receiveBuffer[i] = 0;
+					}
 					OutputDebugString("ENQ received\n");
 					if (!WriteFile(lpParam, ack, 1, NULL, NULL)) {
 						OutputDebugString("Couldn't write, sorry\n");
@@ -363,6 +367,9 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 						while (currentLen < PACKETLENGTH) {
 							if (ReadFile(lpParam, receiveBuffer + currentLen, PACKETLENGTH, bytesRead, NULL)) {
 								currentLen += *bytesRead;
+								if (*(receiveBuffer + currentLen) == EOT) {
+									break;
+								}
 							}
 						}
 						OutputDebugString("Read a packet\n");
