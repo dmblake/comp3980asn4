@@ -19,4 +19,5 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam);
 void OpenFileDialog();
 void ClearTextBoxes();
 void SetStatistics();
+static DWORD WINAPI ReadFromPort(LPVOID lpParam);
 #endif

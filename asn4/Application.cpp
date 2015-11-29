@@ -5,10 +5,11 @@ TCHAR Result[8000000] = "";
 TCHAR ComName[] = "COM1";
 CHAR pbuf[512];
 CHAR packetBuffer[MAXPACKETS][PACKETLENGTH];
-HANDLE hComm;
+HANDLE hComm, hThrd;
 HWND hMain, hBtnConnect, hBtnQuit, hSend, hReceive, hStats, hSendEnq, hSendPacket;
-DWORD packetsCreated = 0, packetsReceived = 0, packetsSent = 0;
+DWORD packetsCreated = 0, packetsReceived = 0, packetsSent = 0, threadId;
 TCHAR enq[1] = "";
+TCHAR ack[1] = "";
 COMMCONFIG cc = { 0 };
 
 BOOL CreateUI(HINSTANCE hInst) {
@@ -16,11 +17,19 @@ BOOL CreateUI(HINSTANCE hInst) {
 
 	
 
-	enq[0] = 0x47;
+	enq[0] = ENQ;
+	ack[0] = ACK;
+
 	if ((hComm = CreateFile(TEXT("COM1"), GENERIC_READ | GENERIC_WRITE, 0,
 		NULL, OPEN_EXISTING, NULL, NULL)) == INVALID_HANDLE_VALUE) {
 		OutputDebugString("Failed to open COM port\n");
 	}
+	else {
+		
+		
+	}
+	
+
 	
 	// create the main window class
 	Wcl.cbSize = sizeof(WNDCLASSEX);
@@ -82,6 +91,14 @@ BOOL CreateUI(HINSTANCE hInst) {
 	if (!GetCommConfig(hComm, &cc, &cc.dwSize)) {
 		OutputDebugString("Could not get CommConfig\n");
 		return FALSE;
+	}
+
+	if ((hThrd = CreateThread(NULL, 0, ReadFromPort, (LPVOID)hComm, 0, &threadId)) == NULL) {
+		//failure
+		OutputDebugString("Failed to start read thread\n");
+	}
+	else {
+		OutputDebugString("Thread created\n");
 	}
 
 	return TRUE;
@@ -282,4 +299,63 @@ void SetStatistics() {
 		"PACKETS RECEIVED: %d\n"
 		"ACKS RECEIVED: %d\n", packetsCreated, 35, 10);
 	SetWindowText(hStats, str);
+}
+
+static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
+	OVERLAPPED overlapped = { 0 };
+	BOOL fWaitingOnRead = FALSE;
+	overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+	char buffer[516] = "";
+	HWND hwnd = GetForegroundWindow();
+	RECT windowSize;
+	GetWindowRect(hwnd, &windowSize);
+	SIZE textSize;
+
+	DWORD dwEvent;
+	SetCommMask(lpParam, EV_RXCHAR);
+
+	//not used yet
+	COMSTAT comstat;
+
+	while (true) {
+		//wait for comm event, can't timeout
+		if (WaitCommEvent(lpParam, &dwEvent, NULL)) {
+			//deal with packet including timeouts
+
+			if (ReadFile(lpParam, &buffer, sizeof(char), NULL, &overlapped)) {
+				//process char
+				if (buffer[0] == ENQ) {
+					//if ENQ received
+					OutputDebugString("ENQ received\n");
+					if (!WriteFile(lpParam, ack, 1, NULL, NULL)) {
+						OutputDebugString("Couldn't write, sorry\n");
+					}
+					else {
+						OutputDebugString("ACK sent\n");
+					}
+					
+
+				}
+				else if (buffer[0] == ACK) {
+					OutputDebugString("ACK received\n");
+				}
+				else {
+
+					/*
+					GetWindowRect(hwnd, &windowSize);
+					HDC hdc = GetDC(hwnd);
+					GetTextExtentPoint32(hdc, (LPCWSTR)buffer, 1, &textSize);
+					TextOut(hdc, xStart, yStart, (LPCWSTR)buffer, 1);
+					xStart += textSize.cx;
+					if (xStart > windowSize.right - 35 || buffer[0] == '\r') {
+						xStart = 1;
+						yStart += textSize.cy;
+					}
+					ReleaseDC(hwnd, hdc);
+					*/
+				}
+			}
+		}
+	}
+	return 0;
 }
