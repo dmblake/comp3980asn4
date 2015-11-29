@@ -138,6 +138,7 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
 		case ASN_ENQ:
+			CancelIoEx(hComm, NULL);
 			if (!WriteFile(hComm, enq, 1, NULL, NULL)) {
 				OutputDebugString("Couldn't write, sorry\n");
 			}
@@ -356,6 +357,7 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 				}
 			}
 		}
+		Sleep(2);
 	}
 	return 0;
 }
