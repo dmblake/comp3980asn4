@@ -37,9 +37,10 @@ BOOL SendAck(HANDLE hComm) {
 	// put ACK on the serial port
 	char ak = ACK;
 	if (!WriteFile(hComm, &ak, 1, NULL, NULL)) {
-		OutputDebugString("Unable to send ACK");
+		OutputDebugString("Unable to send ACK\n");
 		return FALSE;
 	}
+	OutputDebugString("Sent ACK\n");
 	return TRUE;
 }
 
@@ -72,7 +73,6 @@ void Depacketize(CHAR *packet) {
 	int i;
 	//OutputDebugString(packet);
 	strncpy_s(packet, PACKETLENGTH, packet + 4, DATALENGTH);
-	OutputDebugString(packet);
 }
 
 BOOL ErrorCheck(CHAR *packet) {
@@ -82,8 +82,9 @@ BOOL ErrorCheck(CHAR *packet) {
 		cs->add(packet[i]);
 	}
 	std::vector<char> k = cs->get();
+	OutputDebugString("Packet is ");
+	OutputDebugString(cs->check(k[0], k[1]) ? "valid\n" : "invalid\n");
 	return cs->check(k[0], k[1]);
-
 }
 
 

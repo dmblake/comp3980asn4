@@ -173,8 +173,7 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 			break;
 		case ASN_PCK:
 			startWriting();
-			OutputDebugString("ENQ\n");
-			OutputDebugString("sendtest");
+			OutputDebugString("Send packet");
 			////string s1 = packetBuffer[0][0];
 			//for (int i = 0; i < packetsCreated; i++) 
 			for (WORD i = 0; i < packetsCreated;) {
@@ -208,60 +207,35 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 	return 0;
 }
 
-DWORD ReadUntilDone(HANDLE fileToBeRead) {
-	LPDWORD bytesRead = (LPDWORD)malloc(sizeof(DWORD));
+DWORD PacketizeFile(HANDLE fileToBeRead) {
+	DWORD bytesRead;
 	DWORD totalBytes = GetFileSize(fileToBeRead, NULL);
 	DWORD bytesToRead = (totalBytes > MAX_READ ? MAX_READ : totalBytes);
 	DWORD totalBytesRead = 0;
-	DWORD result;
 	TCHAR readResult[MAX_READ + 1] = { 0 };
-	DWORD i;
 	char totalByteSize[512];
-	ZeroMemory(Result, PACKETLENGTH);
-	*bytesRead = 0;
-	sprintf_s(totalByteSize, "%d", totalBytes);
-	OutputDebugString("totalByteSize = ");
-	OutputDebugString(totalByteSize);
-	OutputDebugString("\n"); 
+	
 	// as long as the whole file is not read, attempt to read the remaining file
 	while (totalBytesRead < totalBytes) { 
-		if (!ReadFile(fileToBeRead, readResult, bytesToRead, bytesRead, NULL)) {
+		if (!ReadFile(fileToBeRead, readResult, bytesToRead, &bytesRead, NULL)) {
+			// error check
 			DWORD err = GetLastError();
 			OutputDebugString("ReadFile failed\n");
 			if (GetLastError() == ERROR_NOACCESS)
 				OutputDebugString("NO ACCESS");
-			return *bytesRead;
+			return bytesRead;
 		}
 		else {
-			// PROCESS READ FILE
+			// PROCESS FILE
 			strcat_s(Result, readResult);
-			totalBytesRead += *bytesRead;
+			totalBytesRead += bytesRead;
 		}
 	} 
-	sprintf_s(totalByteSize, "%d", *bytesRead);
-	OutputDebugString("Bytes read: ");
-	OutputDebugString(totalByteSize);
-	OutputDebugString("\n");
-	SetWindowText(hReceive, Result);
 	SetWindowText(hSend, Result);
 	packetsCreated = CreatePackets(Result, packetBuffer);
-	
-	// process created packets
-	/*
-	for (i = 0; i < packetsCreated; i++) { 
-		if (Depacketize(packetBuffer[i])) {
-			OutputDebugString("\nDepacked!\n");
-		}
-		else {
-			OutputDebugString("\nDepack Error!\n");
-		}
-	}
-	*/
 	SetStatistics();
-	result = *bytesRead;
-	free(bytesRead);
 
-	return result;
+	return bytesRead;
 }
 
 void OpenFileDialog() {
@@ -269,7 +243,6 @@ void OpenFileDialog() {
 	char szFile[256];
 	HWND hwnd = NULL;
 	HANDLE hf;
-	HANDLE newFile;
 
 	// init structure
 	ZeroMemory(&ofn, sizeof(ofn));
@@ -298,21 +271,11 @@ void OpenFileDialog() {
 		DWORD bytesRead = 0;
 		OutputDebugString(ofn.lpstrFile);
 		OutputDebugString("\n");
-		if ((bytesRead = ReadUntilDone(hf))) {
-			//if (ReadFile(hf, Result, 10, bytesRead, NULL)) {
-			newFile = CreateFile(FileName, FILE_APPEND_DATA | GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-			SetFilePointer(newFile, NULL, NULL, FILE_END);
-			if (WriteFile(newFile, Result, bytesRead, bytesWrittenToNewFile, NULL)) {
-				OutputDebugString("Successful write\n");
-			}
-			else {
-				// fail to write
-			}
-			CloseHandle(hf);
-			CloseHandle(newFile);
+		if ((bytesRead = PacketizeFile(hf))) {
 		}
 		OutputDebugString("\n");
 	}
+	CloseHandle(hf);
 }
 
 void ClearTextBoxes() {
@@ -336,7 +299,7 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 	HWND hwnd = GetForegroundWindow();
 	RECT windowSize;
 	GetWindowRect(hwnd, &windowSize);
-	SIZE textSize;
+	HANDLE hnd;
 
 	DWORD dwEvent;
 	SetCommMask(lpParam, EV_RXCHAR);
@@ -353,28 +316,35 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 				//process char
 				if (buffer[0] == ENQ) {
 					//if ENQ received
-					// reset the receivebuffer so that there is no junk if the next packet is a short one
-					for (int i = 0; i < PACKETLENGTH; i++) {
-						receiveBuffer[i] = 0;
-					}
 					OutputDebugString("ENQ received\n");
+					// send ack
 					if (SendAck((HANDLE)lpParam)) {
+						// process the packet
 						if (!(receiveBuffer = ReceivePacket((HANDLE)lpParam))) {
 							OutputDebugString("Unable to receive packet\n");
 						}
+						// error check
 						else if (ErrorCheck(receiveBuffer)) {
+							// remove the header bits
 							Depacketize(receiveBuffer);
-							SetWindowText(hReceive, receiveBuffer);
+							// open the file for writing and reading
+							hnd = CreateFile(FileName, FILE_APPEND_DATA | GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+							/*
+							hnd = CreateFile(FileName, GENERIC_READ | GENERIC_WRITE,
+								0, (LPSECURITY_ATTRIBUTES)NULL,
+								OPEN_EXISTING,
+								FILE_ATTRIBUTE_NORMAL,
+								(HANDLE)NULL);
+								*/
+							if (WritePacketToFile(receiveBuffer, hnd)) {
+								UpdateWindowFromFile(hReceive, hnd);
+							}
+							CloseHandle(hnd);
 						}
 					}
 					else {
 					}
-					OutputDebugString("Read a packet\n");
-					OutputDebugString(ErrorCheck(receiveBuffer) ? "CHECKSUM TRUE\n" : "CHECKSUM FALSE\n");
-					Depacketize(receiveBuffer);
 				}
-
-
 			}
 			// ACK received
 			else if (buffer[0] == ACK) {
@@ -394,4 +364,53 @@ void startWriting() {
 
 void finishWriting() {
 	writing = false;
+}
+
+BOOL UpdateWindowFromFile(HWND hwnd, HANDLE fileToBeRead) {
+	if (fileToBeRead == INVALID_HANDLE_VALUE) {
+		OutputDebugString("Could not open handle in UpdateWindowFromFile\n");
+		return FALSE;
+	}
+	DWORD totalBytes = GetFileSize(fileToBeRead, NULL);
+	DWORD bytesToRead = (totalBytes > MAX_READ ? MAX_READ : totalBytes);
+	DWORD totalBytesRead = 0;
+	DWORD bytesRead = 0;
+	CHAR readResult[MAX_READ + 1] = { 0 };
+	// reset file pointer to start
+	SetFilePointer(fileToBeRead, NULL, NULL, FILE_BEGIN);
+	// as long as the whole file is not read, attempt to read the remaining file
+	while (totalBytesRead < totalBytes) {
+		if (!ReadFile(fileToBeRead, readResult, bytesToRead, &bytesRead, NULL)) {
+			// error check
+			DWORD err = GetLastError();
+			OutputDebugString("ReadFile failed\n");
+			if (GetLastError() == ERROR_NOACCESS)
+				OutputDebugString("NO ACCESS");
+			return FALSE;
+		}
+		else {
+			// PROCESS FILE
+			strcat_s(Result, readResult);
+			totalBytesRead += bytesRead;
+		}
+	}
+	SetWindowText(hwnd, Result);
+	return TRUE;
+}
+
+BOOL WritePacketToFile(CHAR *packet, HANDLE fileToBeWritten) {
+	if (fileToBeWritten == INVALID_HANDLE_VALUE) {
+		OutputDebugString("Failed to CreateFile in WritePacketToFile\n");
+		DWORD err = GetLastError();
+		return FALSE;
+	}
+	SetFilePointer(fileToBeWritten, NULL, NULL, FILE_END);
+	if (WriteFile(fileToBeWritten, packet, PACKETLENGTH, NULL, NULL)) {
+		OutputDebugString("Successful write\n");
+		return TRUE;
+	}
+	else {
+		OutputDebugString("Failed to write\n");
+		return FALSE;
+	}
 }

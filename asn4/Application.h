@@ -22,5 +22,7 @@ void ClearTextBoxes();
 void SetStatistics();
 void startWriting();
 void finishWriting();
+BOOL WritePacketToFile(CHAR *packet, HANDLE fileToBeWritten);
 static DWORD WINAPI ReadFromPort(LPVOID lpParam);
+BOOL UpdateWindowFromFile(HWND hwnd, HANDLE fileToBeRead);
 #endif
