@@ -5,7 +5,7 @@ TCHAR Result[8000000] = "";
 TCHAR ComName[] = "COM1";
 CHAR pbuf[512];
 CHAR packetBuffer[MAXPACKETS][PACKETLENGTH];
-CHAR receiveBuffer[PACKETLENGTH];
+CHAR *receiveBuffer;
 HANDLE hComm, hThrd;
 HWND hMain, hBtnConnect, hBtnQuit, hSend, hReceive, hStats, hSendEnq, hSendPacket;
 DWORD packetsCreated = 0, packetsReceived = 0, packetsSent = 0, acksReceived = 0, threadId;
@@ -177,7 +177,7 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 			OutputDebugString("sendtest");
 			////string s1 = packetBuffer[0][0];
 			//for (int i = 0; i < packetsCreated; i++) 
-			for (int i = 0; i < packetsCreated;) {
+			for (WORD i = 0; i < packetsCreated;) {
 				if (!WriteFile(hComm, packetBuffer[i], PACKETLENGTH, NULL, NULL)) {
 					OutputDebugString("Couldn't write, sorry\n");
 				}
@@ -358,47 +358,29 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 						receiveBuffer[i] = 0;
 					}
 					OutputDebugString("ENQ received\n");
-					if (!WriteFile(lpParam, ack, 1, NULL, NULL)) {
-						OutputDebugString("Couldn't write, sorry\n");
+					if (SendAck((HANDLE)lpParam)) {
+						if (!(receiveBuffer = ReceivePacket((HANDLE)lpParam))) {
+							OutputDebugString("Unable to receive packet\n");
+						}
+						else if (ErrorCheck(receiveBuffer)) {
+							Depacketize(receiveBuffer);
+							SetWindowText(hReceive, receiveBuffer);
+						}
 					}
 					else {
-						DWORD currentLen = 0;
-						LPDWORD bytesRead = (LPDWORD)calloc(1, PACKETLENGTH);
-						while (currentLen < PACKETLENGTH) {
-							if (ReadFile(lpParam, receiveBuffer + currentLen, PACKETLENGTH, bytesRead, NULL)) {
-								currentLen += *bytesRead;
-								if (*(receiveBuffer + currentLen) == EOT) {
-									break;
-								}
-							}
-						}
-						OutputDebugString("Read a packet\n");
-						OutputDebugString(ErrorCheck(receiveBuffer) ? "CHECKSUM TRUE\n" : "CHECKSUM FALSE\n");
-						Depacketize(receiveBuffer);
 					}
-					
+					OutputDebugString("Read a packet\n");
+					OutputDebugString(ErrorCheck(receiveBuffer) ? "CHECKSUM TRUE\n" : "CHECKSUM FALSE\n");
+					Depacketize(receiveBuffer);
+				}
 
-				}
-				else if (buffer[0] == ACK) {
-					OutputDebugString("ACK received\n");
-					acksReceived++;
-					SendMessage(hMain, WM_COMMAND, ACK_REC, NULL);
-				}
-				else {
 
-					/*
-					GetWindowRect(hwnd, &windowSize);
-					HDC hdc = GetDC(hwnd);
-					GetTextExtentPoint32(hdc, (LPCWSTR)buffer, 1, &textSize);
-					TextOut(hdc, xStart, yStart, (LPCWSTR)buffer, 1);
-					xStart += textSize.cx;
-					if (xStart > windowSize.right - 35 || buffer[0] == '\r') {
-						xStart = 1;
-						yStart += textSize.cy;
-					}
-					ReleaseDC(hwnd, hdc);
-					*/
-				}
+			}
+			// ACK received
+			else if (buffer[0] == ACK) {
+				OutputDebugString("ACK received\n");
+				acksReceived++;
+				SendMessage(hMain, WM_COMMAND, ACK_REC, NULL);
 			}
 		}
 	}

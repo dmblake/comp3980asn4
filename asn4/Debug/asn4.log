@@ -1,16 +1,22 @@
-﻿Build started 11/28/2015 8:17:44 PM.
-     1>Project "C:\Users\Administrator\Desktop\asn4\asn4\asn4.vcxproj" on node 2 (Build target(s)).
+﻿Build started 29/11/2015 11:21:14 AM.
+     1>Project "D:\COMP3980\asn4\asn4\asn4.vcxproj" on node 2 (Build target(s)).
      1>ClCompile:
-         C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _WINDOWS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"Debug\\" /Fd"Debug\vc140.pdb" /Gd /TP /analyze- /errorReport:prompt Application.cpp
+         D:\VS\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _WINDOWS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"Debug\\" /Fd"Debug\vc140.pdb" /Gd /TP /analyze- /errorReport:prompt Application.cpp Protocol.cpp
+         Protocol.cpp
+     1>d:\comp3980\asn4\asn4\protocol.cpp(72): warning C4101: 'i': unreferenced local variable
+     1>d:\comp3980\asn4\asn4\protocol.cpp(71): warning C4101: 'temp': unreferenced local variable
          Application.cpp
-     1>c:\users\administrator\desktop\asn4\asn4\application.cpp(174): warning C4101: 'i': unreferenced local variable
+     1>d:\comp3980\asn4\asn4\application.cpp(218): warning C4101: 'i': unreferenced local variable
+     1>d:\comp3980\asn4\asn4\application.cpp(339): warning C4101: 'textSize': unreferenced local variable
+     1>d:\comp3980\asn4\asn4\application.cpp(345): warning C4101: 'comstat': unreferenced local variable
+         Generating Code...
        Link:
-         C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Administrator\Desktop\asn4\Debug\asn4.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /Debug /PDB:"C:\Users\Administrator\Desktop\asn4\Debug\asn4.pdb" /SUBSYSTEM:WINDOWS /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Administrator\Desktop\asn4\Debug\asn4.lib" /MACHINE:X86 Debug\Menu.res
+         D:\VS\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"D:\COMP3980\asn4\Debug\asn4.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /Debug /PDB:"D:\COMP3980\asn4\Debug\asn4.pdb" /SUBSYSTEM:WINDOWS /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"D:\COMP3980\asn4\Debug\asn4.lib" /MACHINE:X86 Debug\Menu.res
          Debug\Application.obj
          Debug\Protocol.obj
-         asn4.vcxproj -> C:\Users\Administrator\Desktop\asn4\Debug\asn4.exe
-     1>Done Building Project "C:\Users\Administrator\Desktop\asn4\asn4\asn4.vcxproj" (Build target(s)).
+         asn4.vcxproj -> D:\COMP3980\asn4\Debug\asn4.exe
+     1>Done Building Project "D:\COMP3980\asn4\asn4\asn4.vcxproj" (Build target(s)).
 
 Build succeeded.
 
-Time Elapsed 00:00:00.82
+Time Elapsed 00:00:02.29

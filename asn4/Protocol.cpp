@@ -33,17 +33,38 @@ void SendPacket() {
 	// timeout procedure
 }
 
-void SendAck() {
+BOOL SendAck(HANDLE hComm) {
 	// put ACK on the serial port
-	// ReceivePacket
+	char ak = ACK;
+	if (!WriteFile(hComm, &ak, 1, NULL, NULL)) {
+		OutputDebugString("Unable to send ACK");
+		return FALSE;
+	}
+	return TRUE;
 }
 
-void ReceivePacket() {
+CHAR* ReceivePacket(HANDLE hComm) {
 	// check the serial port
 	// if there is a character and it is not EOT, add it to a buffer representing a packet
 	// when max packet sized is reached or EOT is read, send the packet to the erorr checker
 	// if that returns OK, send an ack
 	// if not keep waiting (timeout procedures)
+	DWORD currentLen = 0;
+	LPDWORD bytesRead = (LPDWORD)calloc(1, PACKETLENGTH);
+	CHAR *receiveBuffer = (CHAR *)calloc(1, PACKETLENGTH);
+	if (!bytesRead || !receiveBuffer) {
+		OutputDebugString("Failed to allocate memory in ReceivePacket\n");
+		return FALSE;
+	}
+	while (currentLen < PACKETLENGTH) {
+		if (ReadFile(hComm, receiveBuffer + currentLen, PACKETLENGTH, bytesRead, NULL)) {
+			currentLen += *bytesRead;
+			if (*(receiveBuffer + currentLen) == EOT) {
+				break;
+			}
+		}
+	}
+	return receiveBuffer;
 }
 
 void Depacketize(CHAR *packet) {

@@ -28,12 +28,12 @@ DWORD CreatePackets(CHAR *bufToPacketize, CHAR buffer[MAXPACKETS][PACKETLENGTH])
 void Packetize(CHAR *buf, CHAR *packet);
 BOOL ErrorCheck(CHAR *packet);
 void Depacketize(CHAR *packet);
+BOOL SendAck(HANDLE hComm);
+CHAR* ReceivePacket(HANDLE hComm);
 
 void Idle();
 void WaitForAck();
 void Wait();
 void SendPacket();
-void ReceivePacket();
 void SendEnq();
-void SendAck();
 #endif
