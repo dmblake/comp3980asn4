@@ -180,6 +180,9 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 				if (!WriteFile(hComm, packetBuffer[i], PACKETLENGTH, NULL, NULL)) {
 					OutputDebugString("Couldn't write, sorry\n");
 				}
+				packetsSent++;
+				// ENQ the line to send the next packet
+				// THIS SHOULD BE REPLACED BY THE APPROPRIATE PRIORTIY PROTOCOL
 				if (++i < packetsCreated) {
 					WriteFile(hComm, enq, 1, NULL, NULL);
 				}
@@ -188,9 +191,12 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 			//CancelIoEx(hComm, NULL);
 			//send eot?
 			finishWriting();
+			SetStatistics();
 			break;
 		case ACK_REC:
 			OutputDebugString("ACK received\n");
+			acksReceived++;
+			SetStatistics();
 			break;
 		}
 		break; // end WM_COMMAND
@@ -288,7 +294,7 @@ void SetStatistics() {
 	TCHAR str[128] = "";
 	sprintf_s(str, "PACKETS SENT: %d\n"
 		"PACKETS RECEIVED: %d\n"
-		"ACKS RECEIVED: %d\n", packetsCreated, 35, acksReceived);
+		"ACKS RECEIVED: %d\n", packetsSent, packetsReceived, acksReceived);
 	SetWindowText(hStats, str);
 }
 
@@ -328,10 +334,11 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 						else if (ErrorCheck(receiveBuffer)) {
 							// remove the header bits
 							Depacketize(receiveBuffer);
+							packetsReceived++;
 							// open the file for writing and reading
 
 							hnd = CreateFile(FileName, GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-							
+
 							if (WritePacketToFile(receiveBuffer, hnd)) {
 								UpdateWindowFromFile(hReceive, hnd);
 							}
@@ -341,12 +348,10 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 					else {
 					}
 				}
-			}
-			// ACK received
-			else if (buffer[0] == ACK) {
-				OutputDebugString("ACK received\n");
-				acksReceived++;
-				SendMessage(hMain, WM_COMMAND, ACK_REC, NULL);
+				// ACK received
+				else if (buffer[0] == ACK) {
+					SendMessage(hMain, WM_COMMAND, ACK_REC, NULL);
+				}
 			}
 		}
 	}

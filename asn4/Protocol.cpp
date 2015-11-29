@@ -74,10 +74,10 @@ void Depacketize(CHAR *packet) {
 	// copy the data bytes to the front of the packet
 	strncpy_s(packet, PACKETLENGTH, packet + 4, DATALENGTH);
 	// last 4 bytes contain junk; if they contain nulls there will be errors
-	packet[DATALENGTH] = 255;
-	packet[DATALENGTH+1] = 255;
-	packet[DATALENGTH+2] = 255;
-	packet[DATALENGTH+3] = 255;
+	packet[DATALENGTH] = 0;
+	packet[DATALENGTH+1] = 0;
+	packet[DATALENGTH+2] = 0;
+	packet[DATALENGTH+3] = 0;
 
 }
 
