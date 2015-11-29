@@ -1,7 +1,7 @@
 #include "Application.h"
 TCHAR Name[] = "Assignment 4";
 TCHAR FileName[100];
-TCHAR Result[800000000] = "";
+TCHAR Result[8000000] = "";
 TCHAR ComName[] = "COM1";
 CHAR pbuf[512];
 CHAR packetBuffer[MAXPACKETS][PACKETLENGTH];
@@ -9,16 +9,19 @@ HANDLE hComm;
 HWND hMain, hBtnConnect, hBtnQuit, hSend, hReceive, hStats, hSendEnq, hSendPacket;
 DWORD packetsCreated = 0, packetsReceived = 0, packetsSent = 0;
 TCHAR enq[1] = "";
+COMMCONFIG cc = { 0 };
 
 BOOL CreateUI(HINSTANCE hInst) {
 	WNDCLASSEX Wcl;
 
-	enq[0] = 0x05;
+	
+
+	enq[0] = 0x47;
 	if ((hComm = CreateFile(TEXT("COM1"), GENERIC_READ | GENERIC_WRITE, 0,
 		NULL, OPEN_EXISTING, NULL, NULL)) == INVALID_HANDLE_VALUE) {
 		OutputDebugString("Failed to open COM port\n");
 	}
-
+	
 	// create the main window class
 	Wcl.cbSize = sizeof(WNDCLASSEX);
 	Wcl.style = CS_HREDRAW | CS_VREDRAW;
@@ -74,6 +77,13 @@ BOOL CreateUI(HINSTANCE hInst) {
 		BTN_XSTART + BTN_WIDTH + BTN_BUFFER, BTN_YSTART, 200, 200, hMain, (HMENU)NULL, (HINSTANCE)GetWindowLong(hMain, GWL_HINSTANCE), NULL))) {
 		return FALSE;
 	}
+	cc.dwSize = sizeof(COMMCONFIG);
+	cc.wVersion = 0x100;
+	if (!GetCommConfig(hComm, &cc, &cc.dwSize)) {
+		OutputDebugString("Could not get CommConfig\n");
+		return FALSE;
+	}
+
 	return TRUE;
 }
 
@@ -87,6 +97,7 @@ int CALLBACK WinMain(HINSTANCE hInst, HINSTANCE prevInstance, LPSTR lpCmdline, i
 	strncat_s(FileName, ".txt.", 4);
 	
 	CreateUI(hInst);
+	
 	ShowWindow (hMain, nCmdShow);
 	UpdateWindow (hMain);
 
@@ -114,6 +125,15 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 				OutputDebugString("Couldn't write, sorry\n");
 			}
 			OutputDebugString("ENQ\n");
+			break;
+		case ASN_SET:
+			if (!CommConfigDialog(TEXT("com1"), hMain, &cc)) {
+				return FALSE;
+			}
+			else {
+				SetCommConfig(hComm, &cc, cc.dwSize);
+				PurgeComm(hComm, PURGE_RXCLEAR);
+			}
 			break;
 		case ASN_CON:
 			OpenFileDialog();

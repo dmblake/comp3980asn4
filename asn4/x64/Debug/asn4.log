@@ -1,0 +1,27 @@
+﻿Build started 11/28/2015 7:56:43 PM.
+     1>Project "C:\Users\Administrator\Desktop\asn4\asn4\asn4.vcxproj" on node 2 (Build target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\x86_amd64\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /D _DEBUG /D _WINDOWS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"x64\Debug\\" /Fd"x64\Debug\vc140.pdb" /Gd /TP /errorReport:prompt Application.cpp Protocol.cpp
+         Protocol.cpp
+         Application.cpp
+     1>c:\users\administrator\desktop\asn4\asn4\application.cpp(48): error C2065: 'GWL_HINSTANCE': undeclared identifier
+     1>c:\users\administrator\desktop\asn4\asn4\application.cpp(48): error C2660: 'CreateWindowExA': function does not take 11 arguments
+     1>c:\users\administrator\desktop\asn4\asn4\application.cpp(52): error C2065: 'GWL_HINSTANCE': undeclared identifier
+     1>c:\users\administrator\desktop\asn4\asn4\application.cpp(52): error C2660: 'CreateWindowExA': function does not take 11 arguments
+     1>c:\users\administrator\desktop\asn4\asn4\application.cpp(57): error C2065: 'GWL_HINSTANCE': undeclared identifier
+     1>c:\users\administrator\desktop\asn4\asn4\application.cpp(57): error C2660: 'CreateWindowExA': function does not take 11 arguments
+     1>c:\users\administrator\desktop\asn4\asn4\application.cpp(61): error C2065: 'GWL_HINSTANCE': undeclared identifier
+     1>c:\users\administrator\desktop\asn4\asn4\application.cpp(61): error C2660: 'CreateWindowExA': function does not take 11 arguments
+     1>c:\users\administrator\desktop\asn4\asn4\application.cpp(66): error C2065: 'GWL_HINSTANCE': undeclared identifier
+     1>c:\users\administrator\desktop\asn4\asn4\application.cpp(66): error C2660: 'CreateWindowExA': function does not take 11 arguments
+     1>c:\users\administrator\desktop\asn4\asn4\application.cpp(70): error C2065: 'GWL_HINSTANCE': undeclared identifier
+     1>c:\users\administrator\desktop\asn4\asn4\application.cpp(70): error C2660: 'CreateWindowExA': function does not take 11 arguments
+     1>c:\users\administrator\desktop\asn4\asn4\application.cpp(74): error C2065: 'GWL_HINSTANCE': undeclared identifier
+     1>c:\users\administrator\desktop\asn4\asn4\application.cpp(74): error C2660: 'CreateWindowExA': function does not take 11 arguments
+     1>c:\users\administrator\desktop\asn4\asn4\application.cpp(99): warning C4244: 'return': conversion from 'WPARAM' to 'int', possible loss of data
+         Generating Code...
+     1>Done Building Project "C:\Users\Administrator\Desktop\asn4\asn4\asn4.vcxproj" (Build target(s)) -- FAILED.
+
+Build FAILED.
+
+Time Elapsed 00:00:01.51
