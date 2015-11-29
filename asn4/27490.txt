@@ -6,5 +6,3 @@
 #define ASN_OPN 106
 #define ASN_ENQ 107
 #define ASN_PCK 108
-#define ASN_SET 109
-
