@@ -71,13 +71,23 @@ CHAR* ReceivePacket(HANDLE hComm) {
 void Depacketize(CHAR *packet) {
 	CHAR temp[PACKETLENGTH];
 	int i;
+	BOOL eotFlag = false;
 	// copy the data bytes to the front of the packet
 	strncpy_s(packet, PACKETLENGTH, packet + 4, DATALENGTH);
 	// last 4 bytes contain junk; if they contain nulls there will be errors
+	for (i = 0; i < PACKETLENGTH; i++) {
+		if (eotFlag)
+			packet[i] = 0;
+		if (packet[i] == EOT) {
+			eotFlag = TRUE;
+			packet[i] = '\n';
+		}
+		}
 	packet[DATALENGTH] = 0;
 	packet[DATALENGTH+1] = 0;
 	packet[DATALENGTH+2] = 0;
 	packet[DATALENGTH+3] = 0;
+
 
 }
 

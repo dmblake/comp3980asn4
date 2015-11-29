@@ -269,12 +269,14 @@ void OpenFileDialog() {
 	if (GetOpenFileName(&ofn) == TRUE) {
 		// valid file selected
 		// going to want to call packetize here
-		LPDWORD bytesWrittenToNewFile = (LPDWORD)malloc(sizeof(DWORD));
 		hf = CreateFile(ofn.lpstrFile, GENERIC_READ,
 			0, (LPSECURITY_ATTRIBUTES)NULL,
 			OPEN_EXISTING,
 			FILE_ATTRIBUTE_NORMAL,
 			(HANDLE)NULL);
+		if (hf == INVALID_HANDLE_VALUE) {
+			return;
+		}
 		DWORD bytesRead = 0;
 		OutputDebugString(ofn.lpstrFile);
 		OutputDebugString("\n");
@@ -335,6 +337,7 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 							// remove the header bits
 							Depacketize(receiveBuffer);
 							packetsReceived++;
+							SetStatistics();
 							// open the file for writing and reading
 
 							hnd = CreateFile(FileName, GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -402,13 +405,17 @@ BOOL UpdateWindowFromFile(HWND hwnd, HANDLE fileToBeRead) {
 }
 
 BOOL WritePacketToFile(CHAR *packet, HANDLE fileToBeWritten) {
+	int i;
 	if (fileToBeWritten == INVALID_HANDLE_VALUE) {
 		OutputDebugString("Failed to CreateFile in WritePacketToFile\n");
 		DWORD err = GetLastError();
 		return FALSE;
 	}
 	SetFilePointer(fileToBeWritten, NULL, NULL, FILE_END);
-	if (WriteFile(fileToBeWritten, packet, PACKETLENGTH, NULL, NULL)) {
+	for (i = 0; i < PACKETLENGTH; i++) {
+		if (packet[i] == 0) break;
+	}
+	if (WriteFile(fileToBeWritten, packet, i-1, NULL, NULL)) {
 		OutputDebugString("Successful write\n");
 		return TRUE;
 	}
