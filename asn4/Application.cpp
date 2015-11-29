@@ -213,8 +213,9 @@ DWORD PacketizeFile(HANDLE fileToBeRead) {
 	DWORD bytesToRead = (totalBytes > MAX_READ ? MAX_READ : totalBytes);
 	DWORD totalBytesRead = 0;
 	TCHAR readResult[MAX_READ + 1] = { 0 };
-	char totalByteSize[512];
 	
+	ZeroMemory(Result, 8000000);
+	SetFilePointer(fileToBeRead, NULL, NULL, FILE_BEGIN);
 	// as long as the whole file is not read, attempt to read the remaining file
 	while (totalBytesRead < totalBytes) { 
 		if (!ReadFile(fileToBeRead, readResult, bytesToRead, &bytesRead, NULL)) {
@@ -299,7 +300,7 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 	HWND hwnd = GetForegroundWindow();
 	RECT windowSize;
 	GetWindowRect(hwnd, &windowSize);
-	HANDLE hnd;
+	HANDLE hnd = 0;
 
 	DWORD dwEvent;
 	SetCommMask(lpParam, EV_RXCHAR);
@@ -328,14 +329,9 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 							// remove the header bits
 							Depacketize(receiveBuffer);
 							// open the file for writing and reading
-							hnd = CreateFile(FileName, FILE_APPEND_DATA | GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-							/*
-							hnd = CreateFile(FileName, GENERIC_READ | GENERIC_WRITE,
-								0, (LPSECURITY_ATTRIBUTES)NULL,
-								OPEN_EXISTING,
-								FILE_ATTRIBUTE_NORMAL,
-								(HANDLE)NULL);
-								*/
+
+							hnd = CreateFile(FileName, GENERIC_WRITE | GENERIC_READ, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+							
 							if (WritePacketToFile(receiveBuffer, hnd)) {
 								UpdateWindowFromFile(hReceive, hnd);
 							}
@@ -376,6 +372,8 @@ BOOL UpdateWindowFromFile(HWND hwnd, HANDLE fileToBeRead) {
 	DWORD totalBytesRead = 0;
 	DWORD bytesRead = 0;
 	CHAR readResult[MAX_READ + 1] = { 0 };
+	ZeroMemory(Result, 8000000);
+
 	// reset file pointer to start
 	SetFilePointer(fileToBeRead, NULL, NULL, FILE_BEGIN);
 	// as long as the whole file is not read, attempt to read the remaining file

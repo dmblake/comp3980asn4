@@ -71,8 +71,14 @@ CHAR* ReceivePacket(HANDLE hComm) {
 void Depacketize(CHAR *packet) {
 	CHAR temp[PACKETLENGTH];
 	int i;
-	//OutputDebugString(packet);
+	// copy the data bytes to the front of the packet
 	strncpy_s(packet, PACKETLENGTH, packet + 4, DATALENGTH);
+	// last 4 bytes contain junk; if they contain nulls there will be errors
+	packet[DATALENGTH] = 255;
+	packet[DATALENGTH+1] = 255;
+	packet[DATALENGTH+2] = 255;
+	packet[DATALENGTH+3] = 255;
+
 }
 
 BOOL ErrorCheck(CHAR *packet) {
