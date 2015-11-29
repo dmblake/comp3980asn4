@@ -1,14 +1,23 @@
 #include "Application.h"
 TCHAR Name[] = "Assignment 4";
 TCHAR FileName[100];
-TCHAR Result[8000000] = "";
+TCHAR Result[800000000] = "";
+TCHAR ComName[] = "COM1";
 CHAR pbuf[512];
 CHAR packetBuffer[MAXPACKETS][PACKETLENGTH];
+HANDLE hComm;
 HWND hMain, hBtnConnect, hBtnQuit, hSend, hReceive, hStats, hSendEnq, hSendPacket;
 DWORD packetsCreated = 0, packetsReceived = 0, packetsSent = 0;
+TCHAR enq[1] = "";
 
 BOOL CreateUI(HINSTANCE hInst) {
 	WNDCLASSEX Wcl;
+
+	enq[0] = 0x05;
+	if ((hComm = CreateFile(TEXT("COM1"), GENERIC_READ | GENERIC_WRITE, 0,
+		NULL, OPEN_EXISTING, NULL, NULL)) == INVALID_HANDLE_VALUE) {
+		OutputDebugString("Failed to open COM port\n");
+	}
 
 	// create the main window class
 	Wcl.cbSize = sizeof(WNDCLASSEX);
@@ -100,6 +109,12 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 		break;
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
+		case ASN_ENQ:
+			if (!WriteFile(hComm, enq, 1, NULL, NULL)) {
+				OutputDebugString("Couldn't write, sorry\n");
+			}
+			OutputDebugString("ENQ\n");
+			break;
 		case ASN_CON:
 			OpenFileDialog();
 			break;
