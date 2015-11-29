@@ -56,7 +56,7 @@ void ErrorCheck() {
 BOOL Depacketize(CHAR *packet) {
 	checksum *cs = new checksum(); 
 	int i;
-	for (i = 0; i < PACKETLENGTH && packet[i] != 0x04; i++) {
+	for (i = 0; i < PACKETLENGTH && packet[i] != EOT; i++) {
 		cs->add(packet[i]);
 	}
 	std::vector<char> k = cs->get();
@@ -81,7 +81,7 @@ DWORD CreatePackets(CHAR *bufToPacketize, CHAR buffer[MAXPACKETS][PACKETLENGTH])
 		// go until you find \0 or you have 512 bytes
 		while (bufToPacketize[j + byteStart] != 0 && j < 512) { j++; }
 		// copy data to a temp
-		strncpy_s(temp, 513, bufToPacketize + byteStart, j); 
+		strncpy_s(temp, j+1, bufToPacketize + byteStart, j); 
 		// packetize
 		Packetize(temp, buffer[i]);
 		OutputDebugString(temp);
@@ -106,8 +106,9 @@ void Packetize(CHAR *buf, CHAR *packet) {
 	for (i = 0; i < 512; i++) {
 		packet[i] = 0;
 	}
-	packet[0] = 0x01;
-	packet[1] = 0x0f;
+	packet[0] = SOH;
+	//TODO: make this check which sync bit to write
+	packet[1] = SYNC_0;
 	packet[2] = 0;
 	packet[3] = 0;
 	for (i = 0; buf[i] != 0 && i < 512;) { 
@@ -115,7 +116,7 @@ void Packetize(CHAR *buf, CHAR *packet) {
 		packet[j++] = buf[i++];
 	} 
 	if (i < 512) {
-		packet[j] = 0x04;
+		packet[j] = EOT;
 	}
 	for (i = 0; i < j; i++) {
 		cs->add(packet[i]);
