@@ -124,7 +124,6 @@ DWORD CreatePackets(CHAR *bufToPacketize, CHAR buffer[MAXPACKETS][PACKETLENGTH])
 		strncpy_s(temp, j+1, bufToPacketize + byteStart, j); 
 		// packetize
 		Packetize(temp, buffer[i]);
-		OutputDebugString(temp);
 		// update the start position of the next packet within the original buffer
 		packetsCreated++;
 		// break if end of buffer

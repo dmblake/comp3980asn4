@@ -13,6 +13,7 @@ TCHAR enq[1] = "";
 TCHAR ack[1] = "";
 COMMCONFIG cc = { 0 };
 BOOL writing = FALSE;
+WORD currentPacket = 0;
 //string s1 = "s";
 
 BOOL CreateUI(HINSTANCE hInst) {
@@ -172,14 +173,15 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 			OpenFileDialog();
 			break;
 		case ASN_PCK:
-			startWriting();
-			OutputDebugString("Send packet");
-			////string s1 = packetBuffer[0][0];
+			OutputDebugString("Send packet\n");
 			//for (int i = 0; i < packetsCreated; i++) 
+			/*
 			for (WORD i = 0; i < packetsCreated;) {
+				startWriting();
 				if (!WriteFile(hComm, packetBuffer[i], PACKETLENGTH, NULL, NULL)) {
 					OutputDebugString("Couldn't write, sorry\n");
 				}
+
 				packetsSent++;
 				SetStatistics();
 				// ENQ the line to send the next packet
@@ -187,16 +189,31 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 				if (++i < packetsCreated) {
 					WriteFile(hComm, enq, 1, NULL, NULL);
 				}
-			}
+				finishWriting();
+				*/
 			//}
 			//CancelIoEx(hComm, NULL);
 			//send eot?
-			finishWriting();
+			
 			break;
 		case ACK_REC:
 			OutputDebugString("ACK received\n");
 			acksReceived++;
 			SetStatistics();
+			if (packetBuffer[currentPacket][0] != 0) {
+				startWriting();
+				if (!WriteFile(hComm, packetBuffer[currentPacket++], PACKETLENGTH, NULL, NULL)) {
+					OutputDebugString("Couldn't write, sorry\n");
+				}
+				packetsSent++;
+				SetStatistics();
+				// ENQ the line to send the next packet
+				// THIS SHOULD BE REPLACED BY THE APPROPRIATE PRIORTIY PROTOCOL
+				if (packetBuffer[currentPacket][0] != 0) {
+					WriteFile(hComm, enq, 1, NULL, NULL);
+				}
+				finishWriting();
+			}
 			break;
 		}
 		break; // end WM_COMMAND
@@ -281,10 +298,11 @@ void OpenFileDialog() {
 		OutputDebugString(ofn.lpstrFile);
 		OutputDebugString("\n");
 		if ((bytesRead = PacketizeFile(hf))) {
+			currentPacket = 0;
 		}
 		OutputDebugString("\n");
+		CloseHandle(hf);
 	}
-	CloseHandle(hf);
 }
 
 void ClearTextBoxes() {
@@ -345,7 +363,6 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 							if (WritePacketToFile(receiveBuffer, hnd)) {
 								UpdateWindowFromFile(hReceive, hnd);
 							}
-							free(receiveBuffer);
 							CloseHandle(hnd);
 						}
 					}
