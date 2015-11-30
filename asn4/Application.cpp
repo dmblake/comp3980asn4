@@ -230,11 +230,13 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 					finishWriting();
 				}
 				state = WACK;
+				break;
 			}
 			if (state == WACK) {
 				OutputDebugString("Packet confirmed received\n");
 				state = IDLE;
 				packsAcked++;
+				acksReceived++;
 				SetStatistics();
 			}
 			break;
@@ -338,7 +340,8 @@ void SetStatistics() {
 	sprintf_s(str, "PACKETS SENT: %d\n"
 		"PACKETS RECEIVED: %d\n"
 		"TOTAL ACKS RECEIVED: %d\n"
-		"PACKETS ACKED: %d\n", packetsSent, packetsReceived, acksReceived, packsAcked);
+		"PACKETS ACKED: %d\n"
+		"PACKET ERROR RATE: %d%%\n", packetsSent, packetsReceived, acksReceived, packsAcked, packetsSent == 0 ? 0 : ((packetsSent - packsAcked) * 100 / packetsSent));
 	SetWindowText(hStats, str);
 }
 
