@@ -105,7 +105,7 @@ BOOL CreateUI(HINSTANCE hInst) {
 	else {
 		OutputDebugString("Thread created\n");
 	}
-
+	SetStatistics();
 	return TRUE;
 }
 

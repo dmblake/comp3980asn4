@@ -93,10 +93,12 @@ void Depacketize(CHAR *packet) {
 
 BOOL ErrorCheck(CHAR *packet) {
 	int i;
-	DWORD sum = -2 * (256 * packet[2] + packet[3]);
+	DWORD sum = 0, check = (256 * packet[2] + packet[3]);
 	for (i = 0; i < PACKETLENGTH && packet[i] != EOT; i++) {
 		sum += packet[i];
 	}
+	sum &= 0xffff;
+	sum -= (2 * check);
 	OutputDebugString("Packet is ");
 	OutputDebugString(sum == 0 ? "valid\n" : "invalid\n");
 	return sum == 0;
