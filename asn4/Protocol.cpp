@@ -51,15 +51,15 @@ CHAR* ReceivePacket(HANDLE hComm) {
 	// if that returns OK, send an ack
 	// if not keep waiting (timeout procedures)
 	DWORD currentLen = 0;
-	LPDWORD bytesRead = (LPDWORD)calloc(1, PACKETLENGTH);
+	DWORD bytesRead = 0;
 	CHAR *receiveBuffer = (CHAR *)calloc(1, PACKETLENGTH);
-	if (!bytesRead || !receiveBuffer) {
+	if (!receiveBuffer) {
 		OutputDebugString("Failed to allocate memory in ReceivePacket\n");
 		return FALSE;
 	}
 	while (currentLen < PACKETLENGTH) {
-		if (ReadFile(hComm, receiveBuffer + currentLen, PACKETLENGTH, bytesRead, NULL)) {
-			currentLen += *bytesRead;
+		if (ReadFile(hComm, receiveBuffer + currentLen, PACKETLENGTH, &bytesRead, NULL)) {
+			currentLen += bytesRead;
 			if (*(receiveBuffer + currentLen) == EOT) {
 				break;
 			}

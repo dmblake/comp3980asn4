@@ -181,6 +181,7 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 					OutputDebugString("Couldn't write, sorry\n");
 				}
 				packetsSent++;
+				SetStatistics();
 				// ENQ the line to send the next packet
 				// THIS SHOULD BE REPLACED BY THE APPROPRIATE PRIORTIY PROTOCOL
 				if (++i < packetsCreated) {
@@ -191,7 +192,6 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 			//CancelIoEx(hComm, NULL);
 			//send eot?
 			finishWriting();
-			SetStatistics();
 			break;
 		case ACK_REC:
 			OutputDebugString("ACK received\n");
@@ -345,10 +345,12 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 							if (WritePacketToFile(receiveBuffer, hnd)) {
 								UpdateWindowFromFile(hReceive, hnd);
 							}
+							free(receiveBuffer);
 							CloseHandle(hnd);
 						}
 					}
 					else {
+						
 					}
 				}
 				// ACK received
