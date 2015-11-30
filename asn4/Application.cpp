@@ -14,7 +14,8 @@ TCHAR ack[1] = "";
 COMMCONFIG cc = { 0 };
 BOOL writing = FALSE;
 WORD currentPacket = 0;
-//string s1 = "s";
+typedef enum {IDLE, WAIT, SENDING, RECEIVING, WACK} STATE;
+STATE state = IDLE;
 
 BOOL CreateUI(HINSTANCE hInst) {
 	WNDCLASSEX Wcl;
@@ -142,6 +143,11 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
 		case ASN_ENQ:
+			if (state != IDLE && state != WAIT) {
+				OutputDebugString("ENQ but not idling\n");
+				break;
+			}
+			state = WACK;
 			startWriting();
 			if (!WriteFile(hComm, enq, 1, NULL, NULL)) {
 				OutputDebugString("Couldn't write, sorry\n");
@@ -197,6 +203,10 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 			
 			break;
 		case ACK_REC:
+			if (state != WACK) {
+				OutputDebugString("ACK received but not waiting for ACK before sending a packet\n");
+				break;
+			}
 			OutputDebugString("ACK received\n");
 			acksReceived++;
 			SetStatistics();
@@ -204,16 +214,21 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 				startWriting();
 				if (!WriteFile(hComm, packetBuffer[currentPacket++], PACKETLENGTH, NULL, NULL)) {
 					OutputDebugString("Couldn't write, sorry\n");
+					break;
 				}
+				OutputDebugString("Send a packet\n");
 				packetsSent++;
 				SetStatistics();
 				// ENQ the line to send the next packet
 				// THIS SHOULD BE REPLACED BY THE APPROPRIATE PRIORTIY PROTOCOL
+				/*
 				if (packetBuffer[currentPacket][0] != 0) {
 					WriteFile(hComm, enq, 1, NULL, NULL);
 				}
+				*/
 				finishWriting();
 			}
+			state = IDLE;
 			break;
 		}
 		break; // end WM_COMMAND
@@ -342,6 +357,7 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 			if (ReadFile(lpParam, &buffer, sizeof(char), NULL, &overlapped)) {
 				//process char
 				if (buffer[0] == ENQ) {
+					state = RECEIVING;
 					//if ENQ received
 					OutputDebugString("ENQ received\n");
 					// send ack
@@ -354,6 +370,9 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 						else if (ErrorCheck(receiveBuffer)) {
 							// remove the header bits
 							Depacketize(receiveBuffer);
+							SendAck((HANDLE)lpParam);
+							// state should go to idle after a timeout
+							state = IDLE;
 							packetsReceived++;
 							SetStatistics();
 							// open the file for writing and reading
