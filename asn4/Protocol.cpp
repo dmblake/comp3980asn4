@@ -92,15 +92,14 @@ void Depacketize(CHAR *packet) {
 }
 
 BOOL ErrorCheck(CHAR *packet) {
-	checksum *cs = new checksum(); 
 	int i;
+	DWORD sum = -2 * (256 * packet[2] + packet[3]);
 	for (i = 0; i < PACKETLENGTH && packet[i] != EOT; i++) {
-		cs->add(packet[i]);
+		sum += packet[i];
 	}
-	std::vector<char> k = cs->get();
 	OutputDebugString("Packet is ");
-	OutputDebugString(cs->check(k[0], k[1]) ? "valid\n" : "invalid\n");
-	return cs->check(k[0], k[1]);
+	OutputDebugString(sum == 0 ? "valid\n" : "invalid\n");
+	return sum == 0;
 }
 
 
@@ -140,8 +139,7 @@ DWORD CreatePackets(CHAR *bufToPacketize, CHAR buffer[MAXPACKETS][PACKETLENGTH])
 
 void Packetize(CHAR *buf, CHAR *packet) {
 	int i, j=4;
-	checksum *cs = new checksum();
-	cs->clear();
+	DWORD sum = 0;
 	for (i = 0; i < 512; i++) {
 		packet[i] = 0;
 	}
@@ -150,18 +148,16 @@ void Packetize(CHAR *buf, CHAR *packet) {
 	packet[1] = SYNC_0;
 	packet[2] = 0;
 	packet[3] = 0;
-	for (i = 0; buf[i] != 0 && i < 512;) { 
-
+	for (i = 0; buf[i] != 0 && i < 512;) {
 		packet[j++] = buf[i++];
+
 	} 
 	if (i < 512) {
 		packet[j] = EOT;
 	}
 	for (i = 0; i < j; i++) {
-		cs->add(packet[i]);
+		sum += packet[i];
 	}
-	std::vector<char> k = cs->get();
-	packet[2] = k[0];
-	packet[3] = k[1];
-	delete[] cs;
+	packet[2] = (sum & 0x0000ff00);
+	packet[3] = (sum & 0x000000ff);
 }
