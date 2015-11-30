@@ -8,13 +8,13 @@ CHAR packetBuffer[MAXPACKETS][PACKETLENGTH];
 CHAR *receiveBuffer;
 HANDLE hComm, hThrd;
 HWND hMain, hBtnConnect, hBtnQuit, hSend, hReceive, hStats, hSendEnq, hSendPacket;
-DWORD packetsCreated = 0, packetsReceived = 0, packetsSent = 0, acksReceived = 0, threadId;
+DWORD packetsCreated = 0, packetsReceived = 0, packetsSent = 0, acksReceived = 0, packsAcked = 0, threadId;
 TCHAR enq[1] = "";
 TCHAR ack[1] = "";
 COMMCONFIG cc = { 0 };
 BOOL writing = FALSE;
 WORD currentPacket = 0;
-typedef enum {IDLE, WAIT, SENDING, RECEIVING, WACK} STATE;
+typedef enum {IDLE, WAIT, SENDING, RECEIVING, WACK, WENQACK} STATE;
 STATE state = IDLE;
 
 BOOL CreateUI(HINSTANCE hInst) {
@@ -147,7 +147,7 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 				OutputDebugString("ENQ but not idling\n");
 				break;
 			}
-			state = WACK;
+			state = WENQACK;
 			startWriting();
 			if (!WriteFile(hComm, enq, 1, NULL, NULL)) {
 				OutputDebugString("Couldn't write, sorry\n");
@@ -203,32 +203,40 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 			
 			break;
 		case ACK_REC:
-			if (state != WACK) {
+			if (state != WACK && state != WENQACK) {
 				OutputDebugString("ACK received but not waiting for ACK before sending a packet\n");
 				break;
 			}
-			OutputDebugString("ACK received\n");
-			acksReceived++;
-			SetStatistics();
-			if (packetBuffer[currentPacket][0] != 0) {
-				startWriting();
-				if (!WriteFile(hComm, packetBuffer[currentPacket++], PACKETLENGTH, NULL, NULL)) {
-					OutputDebugString("Couldn't write, sorry\n");
-					break;
-				}
-				OutputDebugString("Send a packet\n");
-				packetsSent++;
+			if (state == WENQACK) {
+				OutputDebugString("ACK received\n");
+				acksReceived++;
 				SetStatistics();
-				// ENQ the line to send the next packet
-				// THIS SHOULD BE REPLACED BY THE APPROPRIATE PRIORTIY PROTOCOL
-				/*
 				if (packetBuffer[currentPacket][0] != 0) {
-					WriteFile(hComm, enq, 1, NULL, NULL);
+					startWriting();
+					if (!WriteFile(hComm, packetBuffer[currentPacket++], PACKETLENGTH, NULL, NULL)) {
+						OutputDebugString("Couldn't write, sorry\n");
+						break;
+					}
+					OutputDebugString("Send a packet\n");
+					packetsSent++;
+					SetStatistics();
+					// ENQ the line to send the next packet
+					// THIS SHOULD BE REPLACED BY THE APPROPRIATE PRIORTIY PROTOCOL
+					/*
+					if (packetBuffer[currentPacket][0] != 0) {
+						WriteFile(hComm, enq, 1, NULL, NULL);
+					}
+					*/
+					finishWriting();
 				}
-				*/
-				finishWriting();
+				state = WACK;
 			}
-			state = IDLE;
+			if (state == WACK) {
+				OutputDebugString("Packet confirmed received\n");
+				state = IDLE;
+				packsAcked++;
+				SetStatistics();
+			}
 			break;
 		}
 		break; // end WM_COMMAND
@@ -329,7 +337,8 @@ void SetStatistics() {
 	TCHAR str[128] = "";
 	sprintf_s(str, "PACKETS SENT: %d\n"
 		"PACKETS RECEIVED: %d\n"
-		"ACKS RECEIVED: %d\n", packetsSent, packetsReceived, acksReceived);
+		"TOTAL ACKS RECEIVED: %d\n"
+		"PACKETS ACKED: %d\n", packetsSent, packetsReceived, acksReceived, packsAcked);
 	SetWindowText(hStats, str);
 }
 
