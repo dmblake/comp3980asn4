@@ -93,15 +93,23 @@ void Depacketize(CHAR *packet) {
 
 BOOL ErrorCheck(CHAR *packet) {
 	int i;
-	DWORD sum = 0, check = (256 * packet[2] + packet[3]);
+	DWORD sum = 0;
+	CHAR checkbytes[2] = { 0, 0 };
+	// calculate sum
 	for (i = 0; i < PACKETLENGTH && packet[i] != EOT; i++) {
 		sum += packet[i];
 	}
+	// only handle the two least significant bytes
 	sum &= 0xffff;
-	sum -= (2 * check);
+	// remove the values of the checksum
+	sum -= packet[2] + packet[3];
+	// the value of the checksum packets should reflect the adjusted sum
+	checkbytes[0] = sum & 0xff00 % 256;
+	checkbytes[1] = sum & 0x00ff;
+	BOOL check = (packet[2] == checkbytes[0]) && (packet[3] == checkbytes[1] );
 	OutputDebugString("Packet is ");
-	OutputDebugString(sum == 0 ? "valid\n" : "invalid\n");
-	return sum == 0;
+	OutputDebugString(check ? "valid\n" : "invalid\n");
+	return check;
 }
 
 
@@ -148,18 +156,26 @@ void Packetize(CHAR *buf, CHAR *packet) {
 	packet[0] = SOH;
 	//TODO: make this check which sync bit to write
 	packet[1] = SYNC_0;
+	// zero the 2 checksum bytes
 	packet[2] = 0;
 	packet[3] = 0;
+	// copy until end of file (character read is 0 or 512 bytes read)
 	for (i = 0; buf[i] != 0 && i < 512;) {
 		packet[j++] = buf[i++];
 
 	} 
+	// insert EOT if  it's not a full packet
 	if (i < 512) {
 		packet[j] = EOT;
 	}
+	// calculate checksum
 	for (i = 0; i < j; i++) {
 		sum += packet[i];
 	}
-	packet[2] = (sum & 0x0000ff00);
+	// retrieve the most significant byte and convert to char
+	packet[2] = (sum & 0x0000ff00) % 256;
+	// repeat for least significant byte
 	packet[3] = (sum & 0x000000ff);
-}
+	// check the packet locally for errors
+	OutputDebugString(ErrorCheck(packet) ? "Checksum reversed\n" : "Checksum failed\n");
+ }
