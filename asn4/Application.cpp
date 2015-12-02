@@ -373,16 +373,15 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 			}
 			else {
 				if (Wait(&overlapped.hEvent, TIMEOUT)) {
-					if (ReadFile(lpParam, &buffer, 1, NULL, &overlapped)) {
-						if (buffer[0] == ACK) {
-							SendMessage(hMain, WM_COMMAND, ACK_REC, NULL);
-						}
+					ReadFile(lpParam, &buffer, 1, NULL, &overlapped);
+					if (buffer[0] == ACK) {
+						SendMessage(hMain, WM_COMMAND, ACK_REC, NULL);
 					}
+					fWaitingOnRead = FALSE;
 				}
 				else {
 					state = IDLE;
 				}
-				fWaitingOnRead = FALSE;
 			}
 		}
 		if (state == IDLE) {
@@ -395,11 +394,41 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 				}
 			}
 			else {
-				if (WaitForSingleObject(overlapped.hEvent, INFINITE) == WAIT_OBJECT_0) {
+				if (Wait(&overlapped.hEvent, TIMEOUT)) {
+					ReadFile(lpParam, &buffer, 1, NULL, &overlapped);
 					if (buffer[0] == ENQ) {
 						SendAck(lpParam);
 					}
 					fWaitingOnRead = FALSE;
+				}
+				else {
+					state = RECEIVING;
+				}
+			}
+		}
+		if (state == RECEIVING) {
+			if (!fWaitingOnRead) {
+				if (!WaitCommEvent(lpParam, &dwEvent, &overlapped)) {
+					if (GetLastError() == ERROR_IO_PENDING) {
+						fWaitingOnRead = TRUE;
+					}
+
+				}
+			}
+			else {
+				if (Wait(&overlapped.hEvent, TIMEOUT)) {
+					ReadFile(lpParam, &buffer, PACKETLENGTH, NULL, &overlapped);
+					if (ErrorCheck(buffer)) {
+						Depacketize(buffer);
+						SendAck(lpParam);
+						state = IDLE;
+						packetsReceived++;
+						SetStatistics();
+					}
+					fWaitingOnRead = FALSE;
+				}
+				else {
+					state = IDLE;
 				}
 			}
 		}
