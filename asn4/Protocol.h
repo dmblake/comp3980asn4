@@ -35,7 +35,7 @@ CHAR* ReceivePacket(HANDLE hComm);
 
 void Idle();
 void WaitForAck();
-BOOL Wait(HANDLE *event, DWORD timeout);
+BOOL Wait(HANDLE event, DWORD timeout);
 void SendPacket();
 void SendEnq();
 

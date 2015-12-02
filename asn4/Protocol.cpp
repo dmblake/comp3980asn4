@@ -1,9 +1,9 @@
 #include "Protocol.h"
 
-BOOL Wait(HANDLE *event, DWORD timeout) {
+BOOL Wait(HANDLE event, DWORD timeout) {
 	DWORD result;
 	OutputDebugString("Starting to wait...\n");
-	result = WaitForSingleObject(*event, timeout);
+	result = WaitForSingleObject(event, timeout);
 	switch (result) {
 	case WAIT_TIMEOUT:
 		OutputDebugString("Timed out\n");
@@ -11,6 +11,7 @@ BOOL Wait(HANDLE *event, DWORD timeout) {
 		break;
 	case WAIT_OBJECT_0:
 		OutputDebugString("Object signalled\n");
+		return TRUE;
 		break;
 	case WAIT_FAILED:
 		OutputDebugString("Wait failed\n");
@@ -54,7 +55,10 @@ void SendPacket() {
 BOOL SendAck(HANDLE hComm) {
 	// put ACK on the serial port
 	char ak = ACK;
-	WriteFile(hComm, &ak, 1, NULL, &OVERLAPPED());
+	OVERLAPPED overlapped = { 0 };
+	overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+	WriteFile(hComm, &ak, 1, NULL, &overlapped);
+	WaitForSingleObject(overlapped.hEvent, INFINITE);
 	OutputDebugString("Sent ACK\n");
 	return TRUE;
 }
