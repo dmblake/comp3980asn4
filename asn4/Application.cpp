@@ -1,3 +1,15 @@
+/*
+SOURCE FILE: Application.cpp
+PROGRAM: Butter Passer
+FUNCTIONS:
+DATE: 12/2/2015
+REVISION: v4 - synchronization timeouts
+DESIGNER: Dylan & Allen & Thomas
+PROGRAMMER: Dylan & Allen
+
+NOTES: Contains the main drivers for the program, including the main UI thread + message loop,
+		and the thread that monitors the serial port for communication.
+*/
 #include "Application.h"
 TCHAR Name[] = "Assignment 4";
 TCHAR FileName[100];
@@ -17,6 +29,19 @@ WORD currentPacket = 0;
 typedef enum {IDLE, WAIT, SENDING, RECEIVING, WACK, WENQACK} STATE;
 STATE state = IDLE;
 
+/*
+FUNCTION: CreateUI
+DATE: 12/2/2015
+REVISIONS: v1
+DESIGNER: Dylan
+PROGRAMMER: Dylan
+INTERFACE: BOOL CreateUI(HINSTANCE hInst)
+			HINSTANCE hInst : instance on to which the UI elements are created
+RETURNS: TRUE if all the UI elements are created, FALSE otherwise
+
+NOTES: It is the caller's responsibility to ensure that this function is called
+	at the appropriate time (i.e. when UI elements can be created).
+*/
 BOOL CreateUI(HINSTANCE hInst) {
 	WNDCLASSEX Wcl;
 
@@ -104,6 +129,17 @@ BOOL CreateUI(HINSTANCE hInst) {
 	return TRUE;
 }
 
+/*
+FUNCTION: WinMain
+DATE: 12/2/2015
+REVISIONS: v2 - creates a random filename for this session
+DESIGNER: Dylan
+PROGRAMMER: Dylan
+INTERFACE: int CALLBACK WinMain(HINSTANCE hInst, HINSTANCE prevInstance, LPSTR lpCmdline, int nCmdShow)
+RETURNS: the exit message code
+
+NOTES: Main entry point for the program.
+*/
 int CALLBACK WinMain(HINSTANCE hInst, HINSTANCE prevInstance, LPSTR lpCmdline, int nCmdShow) {
 	MSG Msg;
 
@@ -127,6 +163,22 @@ int CALLBACK WinMain(HINSTANCE hInst, HINSTANCE prevInstance, LPSTR lpCmdline, i
 	return Msg.wParam;
 }
 
+/*
+FUNCTION: WndProc
+DATE: 12/2/2015
+REVISIONS: v3 - changed all IO operations to overlapped
+DESIGNER: Dylan & Allen & Thomas
+PROGRAMMER: Dylan & Allen
+INTERFACE: LRESULT CALLBACK WndProc (HWND hwnd, UINT Message, WPARAM wParam, LPARAM lParam)
+			HWND hwnd : handle to the the main window
+			UINT Message : message sent from the message loop to the window
+			WPARAM wParam : parameters to the message
+			LPARAM lParam : parameters to the message
+RETURNS: The default window procedure or 0
+
+NOTES: Handles all button presses from the main window as well as
+		events from the serial port reading thread
+*/
 LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
                           WPARAM wParam, LPARAM lParam) 
 {
@@ -231,6 +283,19 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 	return 0;
 }
 
+/*
+FUNCTION: PacketizeFile
+DATE: 12/2/2015
+REVISIONS: v2 - updates the "sent message" window by reading the file
+DESIGNER: Dylan & Thomas & Allen
+PROGRAMMER: Dylan
+INTERFACE: DWORD PacketizeFile(HANDLE fileToBeRead)
+			HANDLE fileToBeRead : the file to read in order to create packets
+RETURNS: the number of bytes read from the file
+
+NOTES: It is the caller's responsibility to ensure that the handle refers to a valid file
+	that is opened for reading.
+*/
 DWORD PacketizeFile(HANDLE fileToBeRead) {
 	DWORD bytesRead;
 	DWORD totalBytes = GetFileSize(fileToBeRead, NULL);
@@ -263,6 +328,18 @@ SetStatistics();
 return bytesRead;
 }
 
+/*
+FUNCTION: OpenFileDialog
+DATE: 11/30/2015
+REVISIONS: v1
+DESIGNER: Dylan
+PROGRAMMER: Dylan
+INTERFACE: void OpenFileDialog()
+RETURNS: void
+
+NOTES: Opens a file dialog for the user to select a text file for sending.
+		If a valid file is selected, it will be packetized and the packets stored in a buffer.
+*/
 void OpenFileDialog() {
 	OPENFILENAME ofn;
 	char szFile[256];
@@ -305,11 +382,33 @@ void OpenFileDialog() {
 	}
 }
 
+/*
+FUNCTION: ClearTextBoxes
+DATE: 11/29/2015
+REVISIONS: v1
+DESIGNER: Dylan
+PROGRAMMER: Dylan
+INTERFACE: void ClearTextBoxes()
+RETURNS: void
+
+NOTES: Clears the "sent" and "received" windows. Functionality is purely visual.
+*/
 void ClearTextBoxes() {
 	SetWindowText(hSend, "");
 	SetWindowText(hReceive, "");
 }
 
+/*
+FUNCTION: SetStatistics
+DATE: 11/30/2015
+REVISIONS: v2 - error rate
+DESIGNER: Dylan & Allen
+PROGRAMMER: Dylan & Allen
+INTERFACE: void SetStatistics()
+RETURNS: void
+
+NOTES: Updates the statistics text box.
+*/
 void SetStatistics() {
 	TCHAR str[128] = "";
 	sprintf_s(str, "PACKETS SENT: %d\n"
@@ -323,11 +422,21 @@ void SetStatistics() {
 	SetWindowText(hStats, str);
 }
 
-void DoNonReadingStuff(CHAR *packet) {
-	Depacketize(receiveBuffer);
 
-}
+/*
+FUNCTION: ReadFromPort
+DATE: 11/28/2015
+REVISIONS: v4 12/2/2015 - wait state added
+DESIGNER: Allen & Dylan & Thomas
+PROGRAMMER: Allen & Dylan
+INTERFACE: static DWORD WINAPI ReadFromPort(LPVOID lpParam)
+			LPVOID lpParam : parameter passed to the thread; intended to be a communications handle
+RETURNS: 1
 
+NOTES: This function is intended to be called on a separate thread.
+		It has the event driven code to monitor the serial port for INCOMING communications.
+		It will send messages to the main window (via WndProc) for OUTGOING communications.
+*/
 static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 	OVERLAPPED overlapped = { 0 };
 	HANDLE hnd = 0;
@@ -337,11 +446,9 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 	DWORD dwEvent;
 	SetCommMask(lpParam, EV_RXCHAR);
 
-	//not used yet
-	COMSTAT comstat;
-
 	while (true) {
 		switch (state) {
+		// Waiting for ENQ ACKnowledgment
 		case WENQACK:
 			if (!fWaitingOnRead) {
 				if (!WaitCommEvent(lpParam, &dwEvent, &overlapped)) {
@@ -359,12 +466,13 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 					OutputDebugString("Finished reading in WENQACK\n");
 					if (buffer[0] == ACK) {
 						SendMessage(hMain, WM_COMMAND, ACK_REC, NULL);
-						buffer[0] = 0;
+						
 					}
 					else {
 						OutputDebugString("Was not ACK, was ");
 						OutputDebugString(buffer);
 						OutputDebugString("\n");
+						state = WAIT;
 					}
 					fWaitingOnRead = FALSE;
 				}
@@ -373,6 +481,7 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 				}
 			}
 			break;
+		// Waiting for ACKnowledgment for a packet
 		case WACK:
 			if (!fWaitingOnRead) {
 				if (!WaitCommEvent(lpParam, &dwEvent, &overlapped)) {
@@ -391,11 +500,13 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 					fWaitingOnRead = FALSE;
 				}
 				else {
-					state = IDLE;
+					state = WAIT;
 				}
 			}
 			break;
+		// a backoff state, can only become a receiver for some time
 		case WAIT:
+		// default state, can move to sending or receiving
 		case IDLE:
 			if (!fWaitingOnRead) {
 				if ((state == WAIT || state == IDLE) && !WaitCommEvent(lpParam, &dwEvent, &overlapped)) {
@@ -426,6 +537,7 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 				}
 			}
 			break;
+		// anticipating a packet
 		case RECEIVING:
 			if (!fWaitingOnRead) {
 				if (!WaitCommEvent(lpParam, &dwEvent, &overlapped)) {
@@ -468,6 +580,7 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 			}
 			break;
 		}
+		// if a packet is in the queue and the process is in idle, attempt to send
 		if (state == IDLE && packetBuffer[currentPacket][0] != 0) {
 			SendMessage(hMain, WM_COMMAND, ASN_ENQ, NULL);
 		}
@@ -475,15 +588,51 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 	return 1;
 }
 
+/*
+FUNCTION: startWriting
+DATE: 11/30/2015
+REVISIONS: v1
+DESIGNER: Allen
+PROGRAMMER: Allen
+INTERFACE: void startWriting()
+RETURNS: void
+
+NOTES: sets a flag and cancels any other IO operations.
+*/
 void startWriting() {
 	writing = true;
 	CancelIoEx(hComm, NULL);
 }
 
+/*
+FUNCTION: finishWriting
+DATE: 11/29/2015
+REVISIONS: v1
+DESIGNER: Allen
+PROGRAMMER: Allen
+INTERFACE: void finishWriting()
+RETURNS: void
+
+NOTES: ends the writing state (companion to startWriting)
+*/
 void finishWriting() {
 	writing = false;
 }
 
+/*
+FUNCTION: UpdateWindowFromFile
+DATE: 11/30/2015
+REVISIONS: v2 - overlapped IO
+DESIGNER: Dylan
+PROGRAMMER: Dylan
+INTERFACE: BOOL UpdateWindowFromFile(HWND hwnd, HANDLE fileToBeRead)
+			HWND hwnd : handle to the window to update
+			HANDLE fileToBeRead : file to pull text from
+RETURNS: TRUE upon success, FALSE otherwise
+
+NOTES: It is the caller's responsibility to ensure that hwnd and fileToBeRead are valid.
+		This function will pull text from a file and set the window text of the provided handle.
+*/
 BOOL UpdateWindowFromFile(HWND hwnd, HANDLE fileToBeRead) {
 	OVERLAPPED overlapped = { 0 };
 	overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
@@ -526,6 +675,20 @@ BOOL UpdateWindowFromFile(HWND hwnd, HANDLE fileToBeRead) {
 	return TRUE;
 }
 
+/*
+FUNCTION: WritePacketToFile
+DATE: 11/29/2015
+REVISIONS: v3 12/01/2015 - fixed seeking to end of file
+DESIGNER: Dylan
+PROGRAMMER: Dylan & Allen
+INTERFACE: BOOL WritePacketToFile(CHAR *packet, HANDLE fileToBeWritten)
+			CHAR *packet : the packet to write
+			HANDLE fileToBeWritten : the file to write to
+RETURNS: TRUE upon successful write, FALSE otherwise.
+
+NOTES: Writes a depacketized packet (not necessarily a null terminated string)
+		to a file. Will append to the end of the file.
+*/
 BOOL WritePacketToFile(CHAR *packet, HANDLE fileToBeWritten) {
 	int i;
 	DWORD err = 0;

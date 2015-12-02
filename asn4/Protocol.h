@@ -20,7 +20,7 @@
 #define SYNC_0 0x0F
 #define SYNC_1 0xF0
 
-#define TIMEOUT 3000
+#define TIMEOUT 5000
 
 #include <Windows.h>
 #include "stdio.h"

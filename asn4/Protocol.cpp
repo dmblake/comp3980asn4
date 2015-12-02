@@ -1,5 +1,30 @@
+/*
+SOURCE FILE: Protocol.cpp
+PROGRAM: Butter Passer
+FUNCTIONS:
+DATE: 12/2/2015
+REVISION: v4 - fixed timeout issue in receivePacket
+DESIGNER: Dylan & Allen & Thomas
+PROGRAMMER: Dylan & Allen & Thomas
+
+NOTES: Handles the protocol aspect of the program, i.e. sending ACKs and
+		packetizing/depacketizing.
+*/
 #include "Protocol.h"
 
+/*
+FUNCTION: Wait
+DATE: 12/01/2015
+REVISIONS: v1
+DESIGNER: Dylan
+PROGRAMMER: Dylan
+INTERFACE: BOOL Wait(HANDLE event, DWORD timeout)
+			HANDLE event : handle to wait on
+			DWORD timeout : timeout time in milliseconds
+RETURNS: TRUE upon successful wait, FALSE otherwise
+
+NOTES: WaitForSingleObject with some debug code added
+*/
 BOOL Wait(HANDLE event, DWORD timeout) {
 	DWORD result;
 	OutputDebugString("Starting to wait...\n");
@@ -20,38 +45,19 @@ BOOL Wait(HANDLE event, DWORD timeout) {
 	}
 	return TRUE;
 }
-void Idle() {
-	// check comm mask for EV_RXCHAR
-	// if one is found, process it
-	// if not, check if there is a packet in the buffer
-	// if there is, send an enq
-}
 
-void SendEnq(HANDLE hComm) {
-	// put ENQ on the serial port
-	// wait for ACK
-	// if that returns false, timeout procedures
-	// if true, send a packet
-	DWORD bytesWritten = 0;
-	CHAR enq = ENQ;
-	if (!WriteFile(hComm, &enq, 1, &bytesWritten, NULL)) {
-		OutputDebugString("Could not send ENQ\n");
-	}
-}
+/*
+FUNCTION: SendAck
+DATE: 12/01/2015
+REVISIONS: v2 - overlapped IO
+DESIGNER: Allen
+PROGRAMMER: Allen
+INTERFACE: BOOL SendAck(HANDLE hComm)
+			HANDLE hComm : communications handle on which to send the ACK
+RETURNS: TRUE upon successful sending, FALSE otherwise
 
-void WaitForAck() {
-	// check comm mask for EV_RXCHAR
-	// if one is found, process it
-	// if it is an ACK return true
-	// if not, return false
-}
-
-void SendPacket() {
-	// put the packet onto the serial port
-	// wait for ack
-	// timeout procedure
-}
-
+NOTES: convenience function for writing an ack to a serial port.
+*/
 BOOL SendAck(HANDLE hComm) {
 	// put ACK on the serial port
 	char ak = ACK;
@@ -63,6 +69,19 @@ BOOL SendAck(HANDLE hComm) {
 	return TRUE;
 }
 
+/*
+FUNCTION: ReceivePacket
+DATE: 12/02/2015
+REVISIONS: v3 - adjusted timeout to fix bugs
+DESIGNER: Dylan & Thomas & Allen
+PROGRAMMER: Dylan & Allen
+INTERFACE: CHAR* ReceivePacket(HANDLE hComm, OVERLAPPED overlapped)
+			HANDLE hComm : handle to read from
+			OVERLAPPED overlapped : overlapped structure to use
+RETURNS: A pointer to the received array
+
+NOTES: Caller is responsible for calling free() on the pointer returned
+*/
 CHAR* ReceivePacket(HANDLE hComm, OVERLAPPED overlapped) {
 	CHAR *receiveBuffer = (CHAR *)calloc(1, PACKETLENGTH);
 	if (!receiveBuffer) {
@@ -71,7 +90,7 @@ CHAR* ReceivePacket(HANDLE hComm, OVERLAPPED overlapped) {
 	}
 	if (!ReadFile(hComm, receiveBuffer, PACKETLENGTH, NULL, &overlapped)) {
 		if (GetLastError() == ERROR_IO_PENDING) {
-			if (WaitForSingleObject(overlapped.hEvent, INFINITE) == WAIT_OBJECT_0) {
+			if (WaitForSingleObject(overlapped.hEvent, TIMEOUT * 2) == WAIT_OBJECT_0) {
 				OutputDebugString("SUCCESSFUL WAIT\n");
 			}
 			else {
@@ -82,6 +101,19 @@ CHAR* ReceivePacket(HANDLE hComm, OVERLAPPED overlapped) {
 	return receiveBuffer;
 }
 
+/*
+FUNCTION: Depacketize
+DATE: 12/02/2015
+REVISIONS: v2 - fixed strncpy
+DESIGNER: Dylan & Allen & Thomas
+PROGRAMMER: Dylan & Allen
+INTERFACE: void Depacketize(CHAR *packet)
+RETURNS: void
+
+NOTES: takes a packet and alters the same character array to have the data
+		at the front and the back bits padded as 0s.
+		Replaces the EOT character with a newline.
+*/
 void Depacketize(CHAR *packet) {
 	int i, j;
 	BOOL eotFlag = false;
@@ -104,6 +136,19 @@ void Depacketize(CHAR *packet) {
 	packet[DATALENGTH+3] = 0;
 }
 
+/*
+FUNCTION: ErrorCheck
+DATE: 12/01/2015
+REVISIONS: v2 - new checksum method
+DESIGNER: Dylan & Allen & Thomas
+PROGRAMMER: Dylan & Allen
+INTERFACE: BOOL ErrorCheck(const CHAR *packet)
+			const CHAR *packet : the packet to validate
+RETURNS: TRUE if a valid packet, FALSE otherwise
+
+NOTES: doesn't really work in the current form, more investigation required.
+		Uses a 16 bit (two CHAR) checksum
+*/
 BOOL ErrorCheck(const CHAR *packet) {
 	int i;
 	DWORD sum = 0;
@@ -125,7 +170,19 @@ BOOL ErrorCheck(const CHAR *packet) {
 	return check;
 }
 
+/*
+FUNCTION: CreatePackets
+DATE: 11/30/2015
+REVISIONS: v1
+DESIGNER: Dylan & Allen & Thomas
+PROGRAMMER: Dylan
+INTERFACE: DWORD CreatePackets(CHAR *bufToPacketize, CHAR buffer[MAXPACKETS][PACKETLENGTH])
+			CHAR *bufToPacketize : a pointer to the buffer to be packetized
+			CHAR buffer[][] : an array of packets (char arrays)
+RETURNS: the number of packets created
 
+NOTES: creates packets and puts them in the global packet buffer
+*/
 DWORD CreatePackets(CHAR *bufToPacketize, CHAR buffer[MAXPACKETS][PACKETLENGTH]) {
 	int i;
 	int j;
@@ -159,7 +216,20 @@ DWORD CreatePackets(CHAR *bufToPacketize, CHAR buffer[MAXPACKETS][PACKETLENGTH])
 	return packetsCreated;
 }
 
+/*
+FUNCTION: Packetize
+DATE: 11/30/2015
+REVISIONS: v2 - adjusted checksum
+DESIGNER: Thomas & Allen & Dylan
+PROGRAMMER: Thomas & Allen & Dylan
+INTERFACE: void Packetize(CHAR *buf, CHAR *packet)
+			CHAR *buf : raw character to read from
+			CHAR *packet : character array to store the packet in
+RETURNS: void
 
+NOTES: packet should be large enough to hold a packet (516 bytes)
+		Performs the checksum calculations
+*/
 void Packetize(CHAR *buf, CHAR *packet) {
 	int i, j=4;
 	DWORD sum = 0;
