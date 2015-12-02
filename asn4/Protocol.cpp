@@ -63,12 +63,13 @@ BOOL SendAck(HANDLE hComm) {
 	return TRUE;
 }
 
-CHAR* ReceivePacket(HANDLE hComm) {
+CHAR* ReceivePacket(HANDLE hComm, OVERLAPPED overlapped) {
 	// check the serial port
 	// if there is a character and it is not EOT, add it to a buffer representing a packet
 	// when max packet sized is reached or EOT is read, send the packet to the erorr checker
 	// if that returns OK, send an ack
 	// if not keep waiting (timeout procedures)
+	/*
 	DWORD currentLen = 0;
 	DWORD bytesRead = 0;
 	CHAR *receiveBuffer = (CHAR *)calloc(1, PACKETLENGTH);
@@ -77,18 +78,33 @@ CHAR* ReceivePacket(HANDLE hComm) {
 		return FALSE;
 	}
 	while (currentLen < PACKETLENGTH) {
-		if (ReadFile(hComm, receiveBuffer + currentLen, PACKETLENGTH, &bytesRead, NULL)) {
+		if (!ReadFile(hComm, receiveBuffer + currentLen, PACKETLENGTH, NULL, &overlapped)) {
+			if (GetLastError() == ERROR_IO_PENDING) {
+				WaitForSingleObject(overlapped.hEvent, INFINITE);
+			}
+		}
+
 			currentLen += bytesRead;
 			if (*(receiveBuffer + currentLen) == EOT) {
 				break;
 			}
+	}
+	return receiveBuffer;
+	*/
+	CHAR *receiveBuffer = (CHAR *)calloc(1, PACKETLENGTH);
+	if (!receiveBuffer) {
+		OutputDebugString("Failed to allocate memory in ReceivePacket\n");
+		return FALSE;
+	}
+	if (!ReadFile(hComm, receiveBuffer, PACKETLENGTH, NULL, &overlapped)) {
+		if (GetLastError() == ERROR_IO_PENDING) {
+			WaitForSingleObject(overlapped.hEvent, TIMEOUT);
 		}
 	}
 	return receiveBuffer;
 }
 
 void Depacketize(CHAR *packet) {
-	CHAR temp[PACKETLENGTH];
 	int i;
 	BOOL eotFlag = false;
 	// copy the data bytes to the front of the packet
@@ -99,9 +115,9 @@ void Depacketize(CHAR *packet) {
 			packet[i] = 0;
 		if (packet[i] == EOT) {
 			eotFlag = TRUE;
-			packet[i] = '\n';
+			packet[i] = '\n'; // puts a new line character where EOT was
 		}
-		}
+	}
 	packet[DATALENGTH] = 0;
 	packet[DATALENGTH+1] = 0;
 	packet[DATALENGTH+2] = 0;
@@ -110,7 +126,7 @@ void Depacketize(CHAR *packet) {
 
 }
 
-BOOL ErrorCheck(CHAR *packet) {
+BOOL ErrorCheck(const CHAR *packet) {
 	int i;
 	DWORD sum = 0;
 	CHAR checkbytes[2] = { 0, 0 };
@@ -179,7 +195,7 @@ void Packetize(CHAR *buf, CHAR *packet) {
 	packet[2] = 0;
 	packet[3] = 0;
 	// copy until end of file (character read is 0 or 512 bytes read)
-	for (i = 0; buf[i] != 0 && i < 512;) {
+	for (i = 0; buf[i] != 0 && i < DATALENGTH;) {
 		packet[j++] = buf[i++];
 
 	} 
@@ -192,6 +208,7 @@ void Packetize(CHAR *buf, CHAR *packet) {
 		sum += packet[i];
 	}
 	// retrieve the most significant byte and convert to char
+	// packet[2] = sum & 0xff;
 	packet[2] = (sum & 0x0000ff00) /256;
 	// repeat for least significant byte
 	packet[3] = (sum & 0x000000ff);

@@ -7,7 +7,7 @@ CHAR pbuf[512];
 CHAR packetBuffer[MAXPACKETS][PACKETLENGTH];
 CHAR *receiveBuffer;
 HANDLE hComm, hThrd;
-HWND hMain, hBtnConnect, hBtnQuit, hSend, hReceive, hStats, hSendEnq, hSendPacket;
+HWND hMain, hBtnConnect, hBtnQuit, hSend, hReceive, hStats, hSendEnq;
 DWORD packetsCreated = 0, packetsReceived = 0, packetsSent = 0, acksReceived = 0, packsAcked = 0, threadId;
 TCHAR enq[1] = "";
 TCHAR ack[1] = "";
@@ -76,11 +76,6 @@ BOOL CreateUI(HINSTANCE hInst) {
 	}
 	if (!(hSendEnq = CreateWindow("BUTTON", "Send ENQ", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
 		BTN_XSTART, BTN_YSTART + (BTN_HEIGHT + BTN_BUFFER) * 2, BTN_WIDTH, BTN_HEIGHT, hMain, (HMENU)ASN_ENQ, (HINSTANCE)GetWindowLong(hMain, GWL_HINSTANCE), NULL))) {
-		return FALSE;
-	}
-
-	if (!(hSendPacket = CreateWindow("BUTTON", "Packet", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
-		BTN_XSTART, BTN_YSTART + (BTN_HEIGHT + BTN_BUFFER) * 3, BTN_WIDTH, BTN_HEIGHT, hMain, (HMENU)ASN_PCK, (HINSTANCE)GetWindowLong(hMain, GWL_HINSTANCE), NULL))) {
 		return FALSE;
 	}
 	if (!(hReceive = CreateWindow("EDIT", "Received File", WS_VISIBLE | WS_CHILD | WS_BORDER | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL,
@@ -220,7 +215,7 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 						
 						
 					}
-					WaitForSingleObject(overlapped.hEvent, INFINITE);
+					WaitForSingleObject(overlapped.hEvent, TIMEOUT);
 
 					OutputDebugString("Sent a packet\n");
 					packetsSent++;
@@ -352,14 +347,13 @@ void SetStatistics() {
 
 static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 	OVERLAPPED overlapped = { 0 };
+	HANDLE hnd = 0;
 	BOOL fWaitingOnRead = FALSE;
 	overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-	char buffer[516] = "";
+	CHAR buffer[PACKETLENGTH] = "";
 	HWND hwnd = GetForegroundWindow();
 	RECT windowSize;
 	GetWindowRect(hwnd, &windowSize);
-	HANDLE hnd = 0;
-
 	DWORD dwEvent;
 	SetCommMask(lpParam, EV_RXCHAR);
 
@@ -379,12 +373,13 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 			else {
 				if (Wait(overlapped.hEvent, TIMEOUT)) {
 					if (!ReadFile(lpParam, buffer, 1, NULL, &overlapped)) {
-						WaitForSingleObject(overlapped.hEvent, INFINITE);
+						WaitForSingleObject(overlapped.hEvent, TIMEOUT);
 					};
 
 					OutputDebugString("Finished reading in WENQACK\n");
 					if (buffer[0] == ACK) {
 						SendMessage(hMain, WM_COMMAND, ACK_REC, NULL);
+						buffer[0] = 0;
 					}
 					else {
 						OutputDebugString("Was not ACK, was ");
@@ -411,6 +406,7 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 					ReadFile(lpParam, &buffer, 1, NULL, &overlapped);
 					if (buffer[0] == ACK) {
 						SendMessage(hMain, WM_COMMAND, ACK_REC, NULL);
+						buffer[0] = 0;
 					}
 					fWaitingOnRead = FALSE;
 				}
@@ -430,8 +426,13 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 			}
 			else {
 				if (Wait(overlapped.hEvent, TIMEOUT)) {
-					ReadFile(lpParam, &buffer, 1, NULL, &overlapped);
-					if (buffer[0] == ENQ) {
+					if (!ReadFile(lpParam, &buffer, 1, NULL, &overlapped)) {
+						DWORD err = GetLastError();
+						if (err == ERROR_IO_PENDING) {
+							WaitForSingleObject(overlapped.hEvent, TIMEOUT);
+						}
+					}
+					if (state == IDLE && buffer[0] == ENQ) {
 						SendAck(lpParam);
 						state = RECEIVING;
 					}
@@ -457,28 +458,25 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 			}
 			else {
 				if (Wait(overlapped.hEvent, TIMEOUT)) {
-					if (!ReadFile(lpParam, &buffer, PACKETLENGTH, NULL, &overlapped)) {
-						if (GetLastError() == ERROR_IO_PENDING) {
-							// don't do anything for real
-							WaitForSingleObject(overlapped.hEvent, INFINITE);
-							if (1 || ErrorCheck(buffer)) {
-								Depacketize(buffer);
-								SendAck(lpParam);
-								state = IDLE;
-								packetsReceived++;
-								SetStatistics();
-								// open the file for writing and reading
+					receiveBuffer = ReceivePacket(lpParam, overlapped);
+					if (ErrorCheck(receiveBuffer)) {
+						Depacketize(receiveBuffer);
+						SendAck(lpParam);
+						packetsReceived++;
+						SetStatistics();
+						// open the file for writing and reading
 
-								hnd = CreateFile(FileName, GENERIC_WRITE | GENERIC_READ | FILE_APPEND_DATA, 0, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-
-								if (WritePacketToFile(buffer, hnd)) {
-									UpdateWindowFromFile(hReceive, hnd);
-								}
-								CloseHandle(hnd);
-							}
+						hnd = CreateFile(FileName, FILE_APPEND_DATA | GENERIC_WRITE | GENERIC_READ, NULL, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+						if (WritePacketToFile(receiveBuffer, hnd)) {
+							UpdateWindowFromFile(hReceive, hnd);
 						}
+						CloseHandle(hnd);
+
+						fWaitingOnRead = FALSE;
+						state = IDLE;
+						buffer[0] = 0;
+						//	free(receiveBuffer);
 					}
-					fWaitingOnRead = FALSE;
 				}
 				else {
 					state = IDLE;
@@ -500,6 +498,8 @@ void finishWriting() {
 }
 
 BOOL UpdateWindowFromFile(HWND hwnd, HANDLE fileToBeRead) {
+	OVERLAPPED overlapped = { 0 };
+	overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 	if (fileToBeRead == INVALID_HANDLE_VALUE) {
 		OutputDebugString("Could not open handle in UpdateWindowFromFile\n");
 		return FALSE;
@@ -514,27 +514,38 @@ BOOL UpdateWindowFromFile(HWND hwnd, HANDLE fileToBeRead) {
 	// reset file pointer to start
 	SetFilePointer(fileToBeRead, NULL, NULL, FILE_BEGIN);
 	// as long as the whole file is not read, attempt to read the remaining file
-	while (totalBytesRead < totalBytes) {
-		if (!ReadFile(fileToBeRead, readResult, bytesToRead, &bytesRead, NULL)) {
-			// error check
-			DWORD err = GetLastError();
+
+	if (!ReadFile(fileToBeRead, readResult, bytesToRead, NULL, &overlapped)) {
+		// error check
+		DWORD err = GetLastError();
+		if (GetLastError() == ERROR_NOACCESS) {
 			OutputDebugString("ReadFile failed\n");
-			if (GetLastError() == ERROR_NOACCESS)
-				OutputDebugString("NO ACCESS");
+			OutputDebugString("NO ACCESS");
 			return FALSE;
 		}
-		else {
-			// PROCESS FILE
-			strcat_s(Result, readResult);
-			totalBytesRead += bytesRead;
+
+	}
+
+	// PROCESS FILE
+	if (GetLastError() == ERROR_IO_PENDING) {
+		if (WaitForSingleObject(overlapped.hEvent, TIMEOUT) != WAIT_OBJECT_0) {
+			return FALSE;
 		}
 	}
+	strcat_s(Result, readResult);
+
+
 	SetWindowText(hwnd, Result);
 	return TRUE;
 }
 
 BOOL WritePacketToFile(CHAR *packet, HANDLE fileToBeWritten) {
 	int i;
+	DWORD err = 0;
+	OVERLAPPED overlapped = { 0 };
+	overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+//	overlapped.Offset = 0xffffffff;
+//	overlapped.OffsetHigh = 0xffffffff;
 	if (fileToBeWritten == INVALID_HANDLE_VALUE) {
 		OutputDebugString("Failed to CreateFile in WritePacketToFile\n");
 		DWORD err = GetLastError();
@@ -544,12 +555,24 @@ BOOL WritePacketToFile(CHAR *packet, HANDLE fileToBeWritten) {
 	for (i = 0; i < PACKETLENGTH; i++) {
 		if (packet[i] == 0) break;
 	}
-	if (WriteFile(fileToBeWritten, packet, i-1, NULL, &OVERLAPPED())) {
-		OutputDebugString("Successful write\n");
-		return TRUE;
+	if (!WriteFile(fileToBeWritten, packet, i, NULL, &overlapped)) {
+		if ((err = GetLastError()) == ERROR_IO_PENDING) {
+			if (WaitForSingleObject(overlapped.hEvent, TIMEOUT) == WAIT_OBJECT_0) {
+				OutputDebugString("Successful write\n");
+				return TRUE;
+			}
+			else {
+				OutputDebugString("Failed to write\n");
+				return FALSE;
+			}
+		}
+		else {
+			OutputDebugString("Failed to write\n");
+			return FALSE;
+		}
 	}
 	else {
-		OutputDebugString("Failed to write\n");
-		return FALSE;
+		OutputDebugString("Successful write\n");
+		return TRUE;
 	}
 }

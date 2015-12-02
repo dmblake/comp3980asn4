@@ -28,10 +28,10 @@
 
 DWORD CreatePackets(CHAR *bufToPacketize, CHAR buffer[MAXPACKETS][PACKETLENGTH]);
 void Packetize(CHAR *buf, CHAR *packet);
-BOOL ErrorCheck(CHAR *packet);
+BOOL ErrorCheck(const CHAR *packet);
 void Depacketize(CHAR *packet);
 BOOL SendAck(HANDLE hComm);
-CHAR* ReceivePacket(HANDLE hComm);
+CHAR* ReceivePacket(HANDLE hComm, OVERLAPPED overlapped);
 
 void Idle();
 void WaitForAck();
