@@ -209,8 +209,8 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 			}
 			if (state == WACK) {
 				OutputDebugString("Packet confirmed received\n");
-				OutputDebugString("Going to IDLE state\n");
-				state = IDLE;
+				OutputDebugString("Going to WAIT state\n");
+				state = WAIT;
 				packsAcked++;
 				acksReceived++;
 				SetStatistics();
@@ -395,9 +395,10 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 				}
 			}
 			break;
+		case WAIT:
 		case IDLE:
 			if (!fWaitingOnRead) {
-				if (state == IDLE && !WaitCommEvent(lpParam, &dwEvent, &overlapped)) {
+				if ((state == WAIT || state == IDLE) && !WaitCommEvent(lpParam, &dwEvent, &overlapped)) {
 					if (GetLastError() == ERROR_IO_PENDING) {
 						fWaitingOnRead = TRUE;
 					}
@@ -405,7 +406,7 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 				}
 			}
 			else {
-				if (state == IDLE && Wait(overlapped.hEvent, TIMEOUT)) {
+				if ((state == WAIT || state == IDLE) && Wait(overlapped.hEvent, TIMEOUT)) {
 					ReadFile(lpParam, &buffer, 1, NULL, &overlapped);
 					if (buffer[0] == ENQ) {
 						startWriting();
