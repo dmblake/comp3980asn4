@@ -104,8 +104,8 @@ BOOL ErrorCheck(CHAR *packet) {
 	// remove the values of the checksum
 	sum -= packet[2] + packet[3];
 	// the value of the checksum packets should reflect the adjusted sum
-	checkbytes[0] = sum & 0xff00 % 256;
-	checkbytes[1] = sum & 0x00ff;
+	checkbytes[0] = (sum & 0xff00) / 256;
+	checkbytes[1] = (sum & 0x00ff);
 	BOOL check = (packet[2] == checkbytes[0]) && (packet[3] == checkbytes[1] );
 	OutputDebugString("Packet is ");
 	OutputDebugString(check ? "valid\n" : "invalid\n");
@@ -173,7 +173,7 @@ void Packetize(CHAR *buf, CHAR *packet) {
 		sum += packet[i];
 	}
 	// retrieve the most significant byte and convert to char
-	packet[2] = (sum & 0x0000ff00) % 256;
+	packet[2] = (sum & 0x0000ff00) /256;
 	// repeat for least significant byte
 	packet[3] = (sum & 0x000000ff);
 	// check the packet locally for errors
