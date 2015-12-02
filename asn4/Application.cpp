@@ -156,6 +156,7 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 			finishWriting();
 			break;
 		case ASN_SET:
+			startWriting();
 			if (!CommConfigDialog(TEXT("com1"), hMain, &cc)) {
 				return FALSE;
 			}
@@ -163,6 +164,7 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 				SetCommConfig(hComm, &cc, cc.dwSize);
 				PurgeComm(hComm, PURGE_RXCLEAR);
 			}
+			finishWriting();
 			break;
 		case ASN_CON:
 			OpenFileDialog();
@@ -264,27 +266,27 @@ DWORD PacketizeFile(HANDLE fileToBeRead) {
 	
 	ZeroMemory(Result, 8000000);
 	SetFilePointer(fileToBeRead, NULL, NULL, FILE_BEGIN);
-	// as long as the whole file is not read, attempt to read the remaining file
-	while (totalBytesRead < totalBytes) { 
-		if (!ReadFile(fileToBeRead, readResult, bytesToRead, &bytesRead, NULL)) {
-			// error check
-			DWORD err = GetLastError();
-			OutputDebugString("ReadFile failed\n");
-			if (GetLastError() == ERROR_NOACCESS)
-				OutputDebugString("NO ACCESS");
-			return bytesRead;
-		}
-		else {
-			// PROCESS FILE
-			strcat_s(Result, readResult);
-			totalBytesRead += bytesRead;
-		}
-	} 
-	SetWindowText(hSend, Result);
-	packetsCreated = CreatePackets(Result, packetBuffer);
-	SetStatistics();
+// as long as the whole file is not read, attempt to read the remaining file
+while (totalBytesRead < totalBytes) {
+	if (!ReadFile(fileToBeRead, readResult, bytesToRead, &bytesRead, NULL)) {
+		// error check
+		DWORD err = GetLastError();
+		OutputDebugString("ReadFile failed\n");
+		if (GetLastError() == ERROR_NOACCESS)
+			OutputDebugString("NO ACCESS");
+		return bytesRead;
+	}
+	else {
+		// PROCESS FILE
+		strcat_s(Result, readResult);
+		totalBytesRead += bytesRead;
+	}
+}
+SetWindowText(hSend, Result);
+packetsCreated = CreatePackets(Result, packetBuffer);
+SetStatistics();
 
-	return bytesRead;
+return bytesRead;
 }
 
 void OpenFileDialog() {
@@ -362,8 +364,36 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 	COMSTAT comstat;
 
 	while (true) {
+		if (state == WENQACK) {
+			if (Wait(&overlapped.hEvent, TIMEOUT)) {
+				if (ReadFile(lpParam, &buffer, sizeof(char), NULL, &overlapped)) {
+					if (buffer[0] != ACK) {
+					}
+					else {
+						SendMessage(hMain, WM_COMMAND, ACK_REC, NULL);
+					}
+				}
+			}
+			else {
+				state = IDLE;
+			}
+		}
+		if (state == WACK) {
+			if (Wait(&overlapped.hEvent, TIMEOUT)) {
+				if (ReadFile(lpParam, &buffer, sizeof(char), NULL, &overlapped)) {
+					if (buffer[0] != ACK) {
+					}
+					else {
+						SendMessage(hMain, WM_COMMAND, ACK_REC, NULL);
+					}
+				}
+			}
+			else {
+				state = IDLE;
+			}
+		}
 		//wait for comm event, can't timeout
-		if (!writing && WaitCommEvent(lpParam, &dwEvent, NULL)) {
+		if (state == IDLE && !writing && WaitCommEvent(lpParam, &dwEvent, NULL)) {
 			//deal with packet including timeouts
 
 			if (ReadFile(lpParam, &buffer, sizeof(char), NULL, &overlapped)) {
@@ -398,11 +428,11 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 						}
 					}
 					else {
-						
+						// ack in response to enq failed
 					}
 				}
 				// ACK received
-				else if (buffer[0] == ACK) {
+				else if (buffer[0] == ACK && (state == WENQACK || state == WACK)) {
 					SendMessage(hMain, WM_COMMAND, ACK_REC, NULL);
 				}
 			}

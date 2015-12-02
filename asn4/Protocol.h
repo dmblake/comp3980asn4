@@ -20,6 +20,8 @@
 #define SYNC_0 0x0F
 #define SYNC_1 0xF0
 
+#define TIMEOUT 3000
+
 #include <Windows.h>
 #include "stdio.h"
 #include "checksum.h"
@@ -33,7 +35,7 @@ CHAR* ReceivePacket(HANDLE hComm);
 
 void Idle();
 void WaitForAck();
-void Wait();
+BOOL Wait(HANDLE *event, DWORD timeout);
 void SendPacket();
 void SendEnq();
 

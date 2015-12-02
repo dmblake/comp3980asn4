@@ -1,10 +1,23 @@
 #include "Protocol.h"
 
-void Wait() {
-	// check comm mask for EV_RXCHAR
-	// if not found, keep checking until a timer is done
-	// if timer is done, go to Idle
-	// if an ENQ is received, SendAck and ReceivePacket
+BOOL Wait(HANDLE *event, DWORD timeout) {
+	DWORD result;
+	OutputDebugString("Starting to wait...\n");
+	result = WaitForSingleObject(*event, timeout);
+	switch (result) {
+	case WAIT_TIMEOUT:
+		OutputDebugString("Timed out\n");
+		return FALSE;
+		break;
+	case WAIT_OBJECT_0:
+		OutputDebugString("Object signalled\n");
+		break;
+	case WAIT_FAILED:
+		OutputDebugString("Wait failed\n");
+		return FALSE;
+		break;
+	}
+	return TRUE;
 }
 void Idle() {
 	// check comm mask for EV_RXCHAR
