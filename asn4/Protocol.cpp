@@ -49,7 +49,7 @@ void SendPacket() {
 BOOL SendAck(HANDLE hComm) {
 	// put ACK on the serial port
 	char ak = ACK;
-	if (!WriteFile(hComm, &ak, 1, NULL, NULL)) {
+	if (!WriteFile(hComm, &ak, 1, NULL, &OVERLAPPED())) {
 		OutputDebugString("Unable to send ACK\n");
 		return FALSE;
 	}

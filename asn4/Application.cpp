@@ -149,7 +149,7 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 			}
 			state = WENQACK;
 			startWriting();
-			if (!WriteFile(hComm, enq, 1, NULL, NULL)) {
+			if (!WriteFile(hComm, enq, 1, NULL, &OVERLAPPED())) {
 				OutputDebugString("Couldn't write, sorry\n");
 			}
 			OutputDebugString("ENQ sent\n");
@@ -215,7 +215,7 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 				SetStatistics();
 				if (packetBuffer[currentPacket][0] != 0) {
 					startWriting();
-					if (!WriteFile(hComm, packetBuffer[currentPacket++], PACKETLENGTH, NULL, NULL)) {
+					if (!WriteFile(hComm, packetBuffer[currentPacket++], PACKETLENGTH, NULL, &OVERLAPPED())) {
 						OutputDebugString("Couldn't write, sorry\n");
 						break;
 					}
@@ -365,6 +365,29 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 
 	while (true) {
 		if (state == WENQACK) {
+			if (WaitCommEvent(lpParam, &dwEvent, &overlapped)) {
+				//WaitForSingleObject(overlapped.hEvent, TIMEOUT);
+				if (Wait(&overlapped.hEvent, TIMEOUT)) {
+					if (ReadFile(lpParam, &buffer, 1, NULL, &overlapped)) {
+						if (buffer[0] == ACK) {
+							SendMessage(hMain, WM_COMMAND, ACK_REC, NULL);
+						}						
+					}				
+				}
+				else {
+					state = IDLE;
+				}
+			}
+		}
+		if (state == IDLE && !writing && WaitCommEvent(lpParam, &dwEvent, &overlapped)) {
+			if (ReadFile(lpParam, &buffer, 1, NULL, &overlapped)) {
+				if (buffer[0] == ENQ) {
+					SendAck(lpParam);
+				}
+			}
+		}
+		/*
+		if (state == WENQACK) {
 			if (Wait(&overlapped.hEvent, TIMEOUT)) {
 				if (ReadFile(lpParam, &buffer, sizeof(char), NULL, &overlapped)) {
 					if (buffer[0] != ACK) {
@@ -437,6 +460,7 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 				}
 			}
 		}
+		*/
 	}
 	return 0;
 }
@@ -495,7 +519,7 @@ BOOL WritePacketToFile(CHAR *packet, HANDLE fileToBeWritten) {
 	for (i = 0; i < PACKETLENGTH; i++) {
 		if (packet[i] == 0) break;
 	}
-	if (WriteFile(fileToBeWritten, packet, i-1, NULL, NULL)) {
+	if (WriteFile(fileToBeWritten, packet, i-1, NULL, &OVERLAPPED())) {
 		OutputDebugString("Successful write\n");
 		return TRUE;
 	}
