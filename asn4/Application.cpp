@@ -174,30 +174,6 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 		case ASN_OPN:
 			OpenFileDialog();
 			break;
-		case ASN_PCK:
-			OutputDebugString("Send packet\n");
-			//for (int i = 0; i < packetsCreated; i++) 
-			/*
-			for (WORD i = 0; i < packetsCreated;) {
-				startWriting();
-				if (!WriteFile(hComm, packetBuffer[i], PACKETLENGTH, NULL, NULL)) {
-					OutputDebugString("Couldn't write, sorry\n");
-				}
-
-				packetsSent++;
-				SetStatistics();
-				// ENQ the line to send the next packet
-				// THIS SHOULD BE REPLACED BY THE APPROPRIATE PRIORTIY PROTOCOL
-				if (++i < packetsCreated) {
-					WriteFile(hComm, enq, 1, NULL, NULL);
-				}
-				finishWriting();
-				*/
-			//}
-			//CancelIoEx(hComm, NULL);
-			//send eot?
-			
-			break;
 		case ACK_REC:
 			if (state != WACK && state != WENQACK) {
 				OutputDebugString("ACK received but not waiting for ACK before sending a packet\n");
@@ -212,10 +188,8 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 					overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 					startWriting();
 					if (!WriteFile(hComm, packetBuffer[currentPacket++], PACKETLENGTH, NULL, &overlapped)) {
-						
-						
+						WaitForSingleObject(overlapped.hEvent, TIMEOUT);						
 					}
-					WaitForSingleObject(overlapped.hEvent, TIMEOUT);
 
 					OutputDebugString("Sent a packet\n");
 					packetsSent++;
@@ -229,11 +203,13 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 					*/
 					finishWriting();
 				}
+				OutputDebugString("Going to WACK state\n");
 				state = WACK;
 				break;
 			}
 			if (state == WACK) {
 				OutputDebugString("Packet confirmed received\n");
+				OutputDebugString("Going to IDLE state\n");
 				state = IDLE;
 				packsAcked++;
 				acksReceived++;
@@ -280,7 +256,7 @@ while (totalBytesRead < totalBytes) {
 		totalBytesRead += bytesRead;
 	}
 }
-SetWindowText(hSend, Result);
+UpdateWindowFromFile(hSend, fileToBeRead);
 packetsCreated = CreatePackets(Result, packetBuffer);
 SetStatistics();
 
@@ -341,7 +317,10 @@ void SetStatistics() {
 		"PACKETS RECEIVED: %d\n"
 		"TOTAL ACKS RECEIVED: %d\n"
 		"PACKETS ACKED: %d\n"
-		"PACKET ERROR RATE: %d%%\n", packetsSent, packetsReceived, acksReceived, packsAcked, packetsSent == 0 ? 0 : ((packetsSent - packsAcked) * 100 / packetsSent));
+		"PACKET ERROR RATE: %d%%\n", 
+		packetsSent, packetsReceived, acksReceived,
+		packsAcked, 
+		packetsSent == 0 ? 0 : ((packetsSent - packsAcked) * 100 / packetsSent));
 	SetWindowText(hStats, str);
 }
 
@@ -351,9 +330,6 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 	BOOL fWaitingOnRead = FALSE;
 	overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 	CHAR buffer[PACKETLENGTH] = "";
-	HWND hwnd = GetForegroundWindow();
-	RECT windowSize;
-	GetWindowRect(hwnd, &windowSize);
 	DWORD dwEvent;
 	SetCommMask(lpParam, EV_RXCHAR);
 
@@ -417,7 +393,7 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 			break;
 		case IDLE:
 			if (!fWaitingOnRead) {
-				if (!WaitCommEvent(lpParam, &dwEvent, &overlapped)) {
+				if (state == IDLE && !WaitCommEvent(lpParam, &dwEvent, &overlapped)) {
 					if (GetLastError() == ERROR_IO_PENDING) {
 						fWaitingOnRead = TRUE;
 					}
@@ -425,21 +401,19 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 				}
 			}
 			else {
-				if (Wait(overlapped.hEvent, TIMEOUT)) {
-					if (!ReadFile(lpParam, &buffer, 1, NULL, &overlapped)) {
-						DWORD err = GetLastError();
-						if (err == ERROR_IO_PENDING) {
-							WaitForSingleObject(overlapped.hEvent, TIMEOUT);
-						}
-					}
-					if (state == IDLE && buffer[0] == ENQ) {
+				if (state == IDLE && Wait(overlapped.hEvent, TIMEOUT)) {
+					ReadFile(lpParam, &buffer, 1, NULL, &overlapped);
+					if (buffer[0] == ENQ) {
+						startWriting();
 						SendAck(lpParam);
+						finishWriting();
 						state = RECEIVING;
 					}
 					// this is what you call a hack to get around race conditions
 					else if ((state == WENQACK || state == WACK) && buffer[0] == ACK) {
 						SendMessage(hMain, WM_COMMAND, ACK_REC, NULL);
 					}
+		
 					fWaitingOnRead = FALSE;
 				}
 				else {
@@ -461,21 +435,25 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 					receiveBuffer = ReceivePacket(lpParam, overlapped);
 					if (ErrorCheck(receiveBuffer)) {
 						Depacketize(receiveBuffer);
+						startWriting();
 						SendAck(lpParam);
+						finishWriting();
 						packetsReceived++;
 						SetStatistics();
 						// open the file for writing and reading
 
 						hnd = CreateFile(FileName, FILE_APPEND_DATA | GENERIC_WRITE | GENERIC_READ, NULL, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+						startWriting();
 						if (WritePacketToFile(receiveBuffer, hnd)) {
 							UpdateWindowFromFile(hReceive, hnd);
 						}
+						finishWriting();
 						CloseHandle(hnd);
 
 						fWaitingOnRead = FALSE;
 						state = IDLE;
 						buffer[0] = 0;
-						//	free(receiveBuffer);
+						free(receiveBuffer);
 					}
 				}
 				else {
@@ -485,7 +463,7 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 			break;
 		}
 	}
-	return 0;
+	return 1;
 }
 
 void startWriting() {

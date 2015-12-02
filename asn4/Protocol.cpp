@@ -64,33 +64,6 @@ BOOL SendAck(HANDLE hComm) {
 }
 
 CHAR* ReceivePacket(HANDLE hComm, OVERLAPPED overlapped) {
-	// check the serial port
-	// if there is a character and it is not EOT, add it to a buffer representing a packet
-	// when max packet sized is reached or EOT is read, send the packet to the erorr checker
-	// if that returns OK, send an ack
-	// if not keep waiting (timeout procedures)
-	/*
-	DWORD currentLen = 0;
-	DWORD bytesRead = 0;
-	CHAR *receiveBuffer = (CHAR *)calloc(1, PACKETLENGTH);
-	if (!receiveBuffer) {
-		OutputDebugString("Failed to allocate memory in ReceivePacket\n");
-		return FALSE;
-	}
-	while (currentLen < PACKETLENGTH) {
-		if (!ReadFile(hComm, receiveBuffer + currentLen, PACKETLENGTH, NULL, &overlapped)) {
-			if (GetLastError() == ERROR_IO_PENDING) {
-				WaitForSingleObject(overlapped.hEvent, INFINITE);
-			}
-		}
-
-			currentLen += bytesRead;
-			if (*(receiveBuffer + currentLen) == EOT) {
-				break;
-			}
-	}
-	return receiveBuffer;
-	*/
 	CHAR *receiveBuffer = (CHAR *)calloc(1, PACKETLENGTH);
 	if (!receiveBuffer) {
 		OutputDebugString("Failed to allocate memory in ReceivePacket\n");
@@ -105,12 +78,14 @@ CHAR* ReceivePacket(HANDLE hComm, OVERLAPPED overlapped) {
 }
 
 void Depacketize(CHAR *packet) {
-	int i;
+	int i, j;
 	BOOL eotFlag = false;
+	OutputDebugString("Inside depacketize\n");
 	// copy the data bytes to the front of the packet
 	strncpy_s(packet, PACKETLENGTH, packet + 4, DATALENGTH);
-	// last 4 bytes contain junk; if they contain nulls there will be errors
+	// last 4 bytes contain junk; they must contain nulls
 	for (i = 0; i < PACKETLENGTH; i++) {
+
 		if (eotFlag)
 			packet[i] = 0;
 		if (packet[i] == EOT) {
@@ -122,8 +97,6 @@ void Depacketize(CHAR *packet) {
 	packet[DATALENGTH+1] = 0;
 	packet[DATALENGTH+2] = 0;
 	packet[DATALENGTH+3] = 0;
-
-
 }
 
 BOOL ErrorCheck(const CHAR *packet) {
