@@ -26,7 +26,7 @@ BOOL CreateUI(HINSTANCE hInst) {
 	ack[0] = ACK;
 
 	if ((hComm = CreateFile(TEXT("COM1"), GENERIC_READ | GENERIC_WRITE, 0,
-		NULL, OPEN_EXISTING, NULL, NULL)) == INVALID_HANDLE_VALUE) {
+		NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL)) == INVALID_HANDLE_VALUE) {
 		OutputDebugString("Failed to open COM port\n");
 	}
 	else {
@@ -147,11 +147,10 @@ LRESULT CALLBACK WndProc (HWND hwnd, UINT Message,
 				OutputDebugString("ENQ but not idling\n");
 				break;
 			}
-			state = WENQACK;
 			startWriting();
-			if (!WriteFile(hComm, enq, 1, NULL, &OVERLAPPED())) {
-				OutputDebugString("Couldn't write, sorry\n");
-			}
+			// send ENQ to the serial port and assume it never fails
+			WriteFile(hComm, enq, 1, NULL, &OVERLAPPED());
+			state = WENQACK;
 			OutputDebugString("ENQ sent\n");
 			finishWriting();
 			break;
@@ -365,20 +364,46 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 
 	while (true) {
 		if (state == WENQACK) {
-			if (WaitCommEvent(lpParam, &dwEvent, &overlapped)) {
-				//WaitForSingleObject(overlapped.hEvent, TIMEOUT);
+			if (!fWaitingOnRead) {
+				if (!WaitCommEvent(lpParam, &dwEvent, &overlapped)) {
+					if (GetLastError() == ERROR_IO_PENDING) {
+						fWaitingOnRead = TRUE;
+					}
+				}
+			}
+			else {
 				if (Wait(&overlapped.hEvent, TIMEOUT)) {
 					if (ReadFile(lpParam, &buffer, 1, NULL, &overlapped)) {
 						if (buffer[0] == ACK) {
 							SendMessage(hMain, WM_COMMAND, ACK_REC, NULL);
-						}						
-					}				
+						}
+					}
 				}
 				else {
 					state = IDLE;
 				}
+				fWaitingOnRead = FALSE;
 			}
 		}
+		if (state == IDLE) {
+			if (!fWaitingOnRead) {
+				if (!WaitCommEvent(lpParam, &dwEvent, &overlapped)) {
+					if (GetLastError() == ERROR_IO_PENDING) {
+						fWaitingOnRead = TRUE;
+					}
+
+				}
+			}
+			else {
+				if (WaitForSingleObject(overlapped.hEvent, INFINITE) == WAIT_OBJECT_0) {
+					if (buffer[0] == ENQ) {
+						SendAck(lpParam);
+					}
+					fWaitingOnRead = FALSE;
+				}
+			}
+		}
+		/*
 		if (state == IDLE && !writing && WaitCommEvent(lpParam, &dwEvent, &overlapped)) {
 			if (ReadFile(lpParam, &buffer, 1, NULL, &overlapped)) {
 				if (buffer[0] == ENQ) {
@@ -386,6 +411,7 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 				}
 			}
 		}
+		*/
 		/*
 		if (state == WENQACK) {
 			if (Wait(&overlapped.hEvent, TIMEOUT)) {

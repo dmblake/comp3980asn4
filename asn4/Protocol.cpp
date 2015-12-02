@@ -26,11 +26,16 @@ void Idle() {
 	// if there is, send an enq
 }
 
-void SendEnq() {
+void SendEnq(HANDLE hComm) {
 	// put ENQ on the serial port
 	// wait for ACK
 	// if that returns false, timeout procedures
 	// if true, send a packet
+	DWORD bytesWritten = 0;
+	CHAR enq = ENQ;
+	if (!WriteFile(hComm, &enq, 1, &bytesWritten, NULL)) {
+		OutputDebugString("Could not send ENQ\n");
+	}
 }
 
 void WaitForAck() {
