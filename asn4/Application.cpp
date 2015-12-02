@@ -295,10 +295,9 @@ void OpenFileDialog() {
 		if (hf == INVALID_HANDLE_VALUE) {
 			return;
 		}
-		DWORD bytesRead = 0;
 		OutputDebugString(ofn.lpstrFile);
 		OutputDebugString("\n");
-		if ((bytesRead = PacketizeFile(hf))) {
+		if ((PacketizeFile(hf))) {
 			currentPacket = 0;
 		}
 		OutputDebugString("\n");
@@ -467,6 +466,9 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 				}
 			}
 			break;
+		}
+		if (state == IDLE && packetBuffer[currentPacket][0] != 0) {
+			SendMessage(hMain, WM_COMMAND, ASN_ENQ, NULL);
 		}
 	}
 	return 1;
