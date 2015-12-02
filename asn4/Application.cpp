@@ -324,6 +324,11 @@ void SetStatistics() {
 	SetWindowText(hStats, str);
 }
 
+void DoNonReadingStuff(CHAR *packet) {
+	Depacketize(receiveBuffer);
+
+}
+
 static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 	OVERLAPPED overlapped = { 0 };
 	HANDLE hnd = 0;
@@ -431,9 +436,10 @@ static DWORD WINAPI ReadFromPort(LPVOID lpParam) {
 				}
 			}
 			else {
-				if (Wait(overlapped.hEvent, TIMEOUT)) {
+				if (Wait(overlapped.hEvent, INFINITE)) {
 					receiveBuffer = ReceivePacket(lpParam, overlapped);
-					if (ErrorCheck(receiveBuffer)) {
+					if (ErrorCheck(receiveBuffer) || 1) {
+						//DoNonReadingStuff(receiveBuffer);
 						Depacketize(receiveBuffer);
 						startWriting();
 						SendAck(lpParam);
@@ -522,8 +528,8 @@ BOOL WritePacketToFile(CHAR *packet, HANDLE fileToBeWritten) {
 	DWORD err = 0;
 	OVERLAPPED overlapped = { 0 };
 	overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-//	overlapped.Offset = 0xffffffff;
-//	overlapped.OffsetHigh = 0xffffffff;
+	overlapped.Offset = 0xffffffff;
+	overlapped.OffsetHigh = 0xffffffff;
 	if (fileToBeWritten == INVALID_HANDLE_VALUE) {
 		OutputDebugString("Failed to CreateFile in WritePacketToFile\n");
 		DWORD err = GetLastError();

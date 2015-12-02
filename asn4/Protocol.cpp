@@ -71,7 +71,12 @@ CHAR* ReceivePacket(HANDLE hComm, OVERLAPPED overlapped) {
 	}
 	if (!ReadFile(hComm, receiveBuffer, PACKETLENGTH, NULL, &overlapped)) {
 		if (GetLastError() == ERROR_IO_PENDING) {
-			WaitForSingleObject(overlapped.hEvent, TIMEOUT);
+			if (WaitForSingleObject(overlapped.hEvent, INFINITE) == WAIT_OBJECT_0) {
+				OutputDebugString("SUCCESSFUL WAIT\n");
+			}
+			else {
+				OutputDebugString("FAILED WAIT\n");
+			}
 		}
 	}
 	return receiveBuffer;
